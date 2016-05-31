@@ -13,7 +13,7 @@ It gives you high performing, non-blocking and parallelized eventing. You build 
 - You're building a real-time system and want to notify your hub as things occur
 - You want to synchronize activity between various application components at the event level
 - You want to use the "[shared nothing](http://en.wikipedia.org/wiki/Shared_nothing_architecture)" integration pattern
-- You want to denormalize events into multiple views for queries (event sourcing)
+- You want to transform events into one or more materialized views for queries, etc. (event sourcing)
 
 ### Usage
 --------
