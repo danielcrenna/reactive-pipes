@@ -36,4 +36,5 @@ block.WaitOne();
 
 #### Addendum
 
-This is a streamlined version of [copper](https://github.com/danielcrenna/vault/tree/master/copper), a library I wrote in 2012.
+- Custom task schedulers in the `Schedulers` folder are provided for [convenience](http://blogs.msdn.com/b/pfxteam/archive/2010/04/04/9990342.aspx) and  Copyright (c) Microsoft Corporation.
+- This is a streamlined version of [copper](https://github.com/danielcrenna/vault/tree/master/copper), a library I wrote in 2012.
