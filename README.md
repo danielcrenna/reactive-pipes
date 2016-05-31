@@ -36,4 +36,4 @@ block.WaitOne();
 
 #### Addendum
 
-This is a streamlined version of [copper](https://github.com/danielcrenna/vault/tree/master/copper), I library I wrote in 2012.
+This is a streamlined version of [copper](https://github.com/danielcrenna/vault/tree/master/copper), a library I wrote in 2012.
