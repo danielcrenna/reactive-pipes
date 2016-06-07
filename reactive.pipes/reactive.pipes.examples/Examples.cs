@@ -32,11 +32,8 @@ namespace reactive.pipes.examples
         public void Execute(AutoResetEvent block)
         {
             var producer = new ObservingProducer<int>();
-
-            producer
-                .Produces(Observable.Range(1, 10000), onCompleted: () => block.Set())
-                .Consumes(Console.WriteLine);
-                
+            producer.Produces(Observable.Range(1, 10000), onCompleted: () => block.Set());
+            producer.Attach(Console.WriteLine);
             producer.Start();
         }
     }
@@ -50,11 +47,8 @@ namespace reactive.pipes.examples
         public void Execute(AutoResetEvent block)
         {
             var producer = new ObservingProducer<int>();
-
-            producer
-                .Produces(Observable.Range(1, 10000), onCompleted: () => block.Set())
-                .Consumes(new ActionBatchingConsumer<int>(i => Console.WriteLine(i.Count), itemsPerBatch: 1000));
-
+            producer.Produces(Observable.Range(1, 10000), onCompleted: () => block.Set());
+            producer.Attach(new ActionBatchingConsumer<int>(i => Console.WriteLine(i.Count), itemsPerBatch: 1000));
             producer.Start();
         }
     }
@@ -97,11 +91,9 @@ namespace reactive.pipes.examples
             var filesProcessed = 0;
 
             // This setup will emit files on another thread
-            var numberProducer = new ObservingProducer<int>();
-            numberProducer
-                .Produces(Observable.Range(1, filesToCreate))
-                .Consumes(new FileConsumer<int>());
-            numberProducer.Start();
+            var producesInts = new ObservingProducer<int>();
+            producesInts.Produces(Observable.Range(1, filesToCreate)).Attach(new FileConsumer<int>());
+            producesInts.Start();
 
             // This setup will output the contents of loaded files to the console
             var fileProducer = new FileProducer<int>();

@@ -77,7 +77,6 @@
     <Compile Include="Extensions\BlockingCollectionExtensions.cs" />
     <Compile Include="Extensions\ObservableExtensions.cs" />
     <Compile Include="Extensions\TaskExtensions.cs" />
-    <Compile Include="FluentExtensions.cs" />
     <Compile Include="Hub.cs" />
     <Compile Include="IConsume.cs" />
     <Compile Include="IEventAggregator.cs" />

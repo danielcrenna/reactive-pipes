@@ -14,7 +14,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		..\LICENSE = ..\LICENSE
 		..\pack-nuget.bat = ..\pack-nuget.bat
 		..\push-nuget.bat = ..\push-nuget.bat
-		..\reactive-pipes.nuspec = ..\reactive-pipes.nuspec
+		..\reactive.pipes.nuspec = ..\reactive.pipes.nuspec
 		..\README.md = ..\README.md
 	EndProjectSection
 EndProject

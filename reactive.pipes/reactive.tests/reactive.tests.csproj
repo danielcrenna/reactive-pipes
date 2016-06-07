@@ -56,8 +56,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="EventAggregatorTests.cs" />
     <Compile Include="FileConsumerTests.cs" />
     <Compile Include="FileFolderFixture.cs" />
+    <Compile Include="IntegerEvent.cs" />
+    <Compile Include="ManifoldEventHandler.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StringEvent.cs" />
     <Compile Include="StringEventHandler.cs" />

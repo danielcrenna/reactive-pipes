@@ -1,3 +1,6 @@
+using System;
+using reactive.pipes.Consumers;
+
 namespace reactive.pipes
 {
     /// <summary>
@@ -7,5 +10,13 @@ namespace reactive.pipes
     public interface IProduce<out T>
     {
         void Attach(IConsume<T> consumer);
+    }
+
+    public static class IProducerExtensions
+    {
+        public static void Attach<T>(this IProduce<T> producer, Action<T> consumer)
+        {
+            producer.Attach(new ActionConsumer<T>(consumer));
+        }
     }
 }

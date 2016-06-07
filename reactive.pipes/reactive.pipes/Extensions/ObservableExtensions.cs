@@ -6,7 +6,10 @@ using System.Threading.Tasks;
 
 namespace reactive.pipes.Extensions
 {
-    internal static class ObservableExtensions
+    /// <summary>
+    /// Extensions for convenient wrappers around delegates to produce a continous stream of objects.
+    /// </summary>
+    public static class ObservableExtensions
     {
         /// <summary>
         /// Executes the delegate continuously until cancelled by the subscriber.
