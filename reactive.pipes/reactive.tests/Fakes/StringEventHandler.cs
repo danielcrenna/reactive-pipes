@@ -1,15 +1,16 @@
 using System.Threading.Tasks;
 using reactive.pipes;
 
-namespace reactive.tests
+namespace reactive.tests.Fakes
 {
     public class StringEventHandler : IConsume<StringEvent>
     {
         public bool Handled { get; private set; }
         
-        public async Task<bool> HandleAsync(StringEvent @event)
+        public Task<bool> HandleAsync(StringEvent @event)
         {
-            return await Task.Run(() => Handled = true);
+            Handled = true;
+            return Task.FromResult(true);
         }
     }
 }

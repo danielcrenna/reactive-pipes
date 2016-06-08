@@ -1,7 +1,7 @@
 using System.Threading.Tasks;
 using reactive.pipes;
 
-namespace reactive.tests
+namespace reactive.tests.Fakes
 {
     public class ManifoldEventHandler : IConsume<StringEvent>, IConsume<IntegerEvent>
     {

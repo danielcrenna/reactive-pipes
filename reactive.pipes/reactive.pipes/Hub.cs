@@ -30,10 +30,15 @@ namespace reactive.pipes
             WeakReference subscription;
             if (_subscriptions.TryGetValue(typeof (T), out subscription))
             {
-                Box<T>(subscription).OnNext(@event);
+                WithEvent(@event, subscription);
                 return true;
             }
             return false;
+        }
+
+        private static void WithEvent<T>(T @event, WeakReference subscription)
+        {
+            Box<T>(subscription).OnNext(@event);
         }
 
         /// <summary> Subscribes a manifold handler. This is required if a handler acts as a consumer for more than one event type. </summary>
@@ -54,40 +59,52 @@ namespace reactive.pipes
             }
         }
 
-        public void Subscribe<T>(Action<T> @handler)
+        public void Subscribe<T>(Action<T> handler)
         {
-            var subscription = GetSubscriptionSubject<T>();
-            var observable = Box<T>(subscription).AsObservable();
-            observable.Subscribe(@handler);
+            // Closest match:
+            SubscribeByDelegate(handler);
+
+            // Sibling tree (a delegate that fans out to all base event handlers that are subscribed):
+            Type type = typeof(T);
+            while (type != null && type.BaseType != typeof(object))
+            {
+                type = type.BaseType; // <-- go to next in base class hierarchy
+
+                Type baseType = type;
+
+                const BindingFlags binding = BindingFlags.Static | BindingFlags.NonPublic;
+                MethodInfo method = typeof(Hub).GetMethod("WithEvent", binding);
+                MethodInfo generic = method.MakeGenericMethod(baseType);
+                
+                Action<T> fanOut = @event =>
+                {
+                    // A new handler for the top-level event type, that fans out dynamically to current sub-type subscriptions
+                    WeakReference subscription;
+                    if (baseType != null && _subscriptions.TryGetValue(baseType, out subscription))
+                    {
+                        generic.Invoke(this, new object[] { @event, subscription });
+                    }
+                };
+
+                SubscribeByDelegate(fanOut);
+            }
         }
 
-        public void Subscribe<T>(Action<T> @handler, Func<T, bool> topic)
+        public void Subscribe<T>(Action<T> handler, Func<T, bool> topic)
         {
-            var subscription = GetSubscriptionSubject<T>();
-            var observable = Box<T>(subscription).Where(topic).AsObservable();
-            observable.Subscribe(@handler);
+            SubscribeByDelegateAndTopic(handler, topic);
         }
-        
+
         public void Subscribe<T>(IConsume<T> consumer)
         {
             SubscribeByInterface(consumer);
         }
 
-        private void SubscribeByInterface<T>(IConsume<T> consumer)
-        {
-            var subscription = GetSubscriptionSubject<T>();
-            var observable = Box<T>(subscription).AsObservable();
-            var unsubscription = _unsubscriptions.GetOrAdd(typeof(T), t => new CancellationTokenSource());
-            observable.Subscribe(@event => consumer.HandleAsync(@event), exception => { }, () => { }, unsubscription.Token);
-        }
-
         public void Subscribe<T>(IConsume<T> consumer, Func<T, bool> topic)
         {
-            var subscription = GetSubscriptionSubject<T>();
-            var observable = Box<T>(subscription).Where(topic).AsObservable();
-            observable.Subscribe(@event => consumer.HandleAsync(@event), exception => { }, () => { });
+            SubscribeByInterfaceAndTopic(consumer, topic);
         }
-
+        
         public void Unsubscribe<T>()
         {
             WeakReference reference;
@@ -104,7 +121,36 @@ namespace reactive.pipes
         {
             return _subscriptions.GetOrAdd(typeof(T), t => new WeakReference(new Subject<T>()));
         }
-        
+
+        private void SubscribeByDelegate<T>(Action<T> handler)
+        {
+            var subscription = GetSubscriptionSubject<T>();
+            var observable = Box<T>(subscription).AsObservable();
+            observable.Subscribe(handler);
+        }
+
+        private void SubscribeByDelegateAndTopic<T>(Action<T> handler, Func<T, bool> topic)
+        {
+            var subscription = GetSubscriptionSubject<T>();
+            var observable = Box<T>(subscription).Where(topic).AsObservable();
+            observable.Subscribe(handler);
+        }
+
+        private void SubscribeByInterface<T>(IConsume<T> consumer)
+        {
+            var subscription = GetSubscriptionSubject<T>();
+            var observable = Box<T>(subscription).AsObservable();
+            var unsubscription = _unsubscriptions.GetOrAdd(typeof(T), t => new CancellationTokenSource());
+            observable.Subscribe(@event => consumer.HandleAsync(@event), exception => { }, () => { }, unsubscription.Token);
+        }
+
+        private void SubscribeByInterfaceAndTopic<T>(IConsume<T> consumer, Func<T, bool> topic)
+        {
+            var subscription = GetSubscriptionSubject<T>();
+            var observable = Box<T>(subscription).Where(topic).AsObservable();
+            observable.Subscribe(@event => consumer.HandleAsync(@event), exception => { }, () => { });
+        }
+
         private static ISubject<T> Box<T>(object subscription)
         {
             var reference = ((WeakReference) subscription).Target;
@@ -120,9 +166,8 @@ namespace reactive.pipes
         protected virtual void Dispose(bool disposing)
         {
             if(!disposing || _subscriptions == null || _subscriptions.Count == 0)
-            {
                 return;
-            }
+
             foreach (var subscription in _subscriptions.Where(subscription => subscription.Value.Target is IDisposable))
             {
                 ((IDisposable)subscription.Value.Target).Dispose();

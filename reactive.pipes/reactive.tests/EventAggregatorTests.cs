@@ -1,5 +1,6 @@
-﻿using System.Threading;
+﻿using System;
 using reactive.pipes;
+using reactive.tests.Fakes;
 using Xunit;
 
 namespace reactive.tests
@@ -41,12 +42,29 @@ namespace reactive.tests
         {
             var aggregator = new Hub();
 
-            var handler = new StringEventHandler();    
+            var handler = new StringEventHandler();
             aggregator.Subscribe(handler);
 
             var sent = aggregator.Publish(new StringEvent("Foo"));
             Assert.True(sent);
             Assert.True(handler.Handled);
+        }
+
+        [Fact]
+        public void Publishes_to_multiple_handlers()
+        {
+            var aggregator = new Hub();
+
+            bool handler1 = false;
+            bool handler2 = false;
+
+            aggregator.Subscribe<StringEvent>(e => { handler1 = true; });
+            aggregator.Subscribe<StringEvent>(e => { handler2 = true; });
+
+            var sent = aggregator.Publish(new StringEvent("Foo"));
+            Assert.True(sent);
+            Assert.True(handler1);
+            Assert.True(handler2);
         }
 
         [Fact]
@@ -66,6 +84,28 @@ namespace reactive.tests
             Assert.True(sent);
             Assert.True(handler.HandledString, "string event handling result was lost");
             Assert.True(handler.HandledInteger, "integer event was not handled");
+        }
+
+        [Fact]
+        public void Publishes_to_multicast_handlers()
+        {
+            var aggregator = new Hub();
+
+            bool baseCalled = false;
+            bool inheritedCalled = false;
+
+            // we need to have a subscription from InheritedEvent to all BaseEvent handlers!
+            Action<BaseEvent> handler1 = e => { baseCalled = true; };
+            Action<InheritedEvent> handler2 = e => { inheritedCalled = true; };
+
+            aggregator.Subscribe(handler1);
+            aggregator.Subscribe(handler2);
+        
+            // one handler, many events (by virtue of class hierarchy)
+            var sent = aggregator.Publish(new InheritedEvent { Id = 123, Value = "ABC" });
+            Assert.True(sent);
+            Assert.True(inheritedCalled, "did not handle highest level event");
+            Assert.True(baseCalled, "did not handle lowest level event");
         }
     }
 }

@@ -57,13 +57,15 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="EventAggregatorTests.cs" />
+    <Compile Include="Fakes\BaseEvent.cs" />
+    <Compile Include="Fakes\InheritedEvent.cs" />
     <Compile Include="FileConsumerTests.cs" />
     <Compile Include="FileFolderFixture.cs" />
-    <Compile Include="IntegerEvent.cs" />
-    <Compile Include="ManifoldEventHandler.cs" />
+    <Compile Include="Fakes\IntegerEvent.cs" />
+    <Compile Include="Fakes\ManifoldEventHandler.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="StringEvent.cs" />
-    <Compile Include="StringEventHandler.cs" />
+    <Compile Include="Fakes\StringEvent.cs" />
+    <Compile Include="Fakes\StringEventHandler.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
