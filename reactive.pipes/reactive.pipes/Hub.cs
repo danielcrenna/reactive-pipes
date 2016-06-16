@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,6 +18,7 @@ namespace reactive.pipes
     /// </summary>
     public class Hub : IEventAggregator, IEventPublisher
     {
+        private readonly Hashtable _byTypeDispatch = new Hashtable();
         private readonly ConcurrentDictionary<Type, WeakReference> _subscriptions = new ConcurrentDictionary<Type, WeakReference>();
         private readonly ConcurrentDictionary<Type, CancellationTokenSource> _unsubscriptions = new ConcurrentDictionary<Type, CancellationTokenSource>();
 
@@ -25,10 +27,34 @@ namespace reactive.pipes
             return await Task.Run(()=> Publish(@event));
         }
 
+        public async Task<bool> PublishAsync(object @event)
+        {
+            return await Task.Run(() => Publish(@event));
+        }
+
+        public bool Publish(object @event)
+        {
+            Type type = @event.GetType();
+            MethodInfo byTypeDispatch = _byTypeDispatch[type] as MethodInfo;
+            if (byTypeDispatch == null)
+            {
+                const BindingFlags binding = BindingFlags.NonPublic | BindingFlags.Instance;
+                MethodInfo method = typeof(Hub).GetMethod("PublishTyped", binding);
+                byTypeDispatch = method.MakeGenericMethod(type);
+                _byTypeDispatch[type] = byTypeDispatch;
+            }
+            return (bool) byTypeDispatch.Invoke(this, new[] {@event});
+        }
+
         public bool Publish<T>(T @event)
         {
+            return PublishTyped(@event);
+        }
+
+        private bool PublishTyped<T>(T @event)
+        {
             WeakReference subscription;
-            if (_subscriptions.TryGetValue(typeof (T), out subscription))
+            if (_subscriptions.TryGetValue(typeof(T), out subscription))
             {
                 WithEvent(@event, subscription);
                 return true;
