@@ -58,6 +58,7 @@
   <ItemGroup>
     <Compile Include="EventAggregatorTests.cs" />
     <Compile Include="Fakes\BaseEvent.cs" />
+    <Compile Include="Fakes\IEvent.cs" />
     <Compile Include="Fakes\InheritedEvent.cs" />
     <Compile Include="FileConsumerTests.cs" />
     <Compile Include="FileFolderFixture.cs" />

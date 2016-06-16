@@ -107,5 +107,31 @@ namespace reactive.tests
             Assert.True(inheritedCalled, "did not handle highest level event");
             Assert.True(baseCalled, "did not handle lowest level event");
         }
+
+        [Fact]
+        public void Publishes_to_multicast_handlers_with_no_existing_subscriptions()
+        {
+            bool handled = false;
+
+            var hub = new Hub();
+            hub.Subscribe<BaseEvent>(e => handled = true);
+            
+            var sent = hub.Publish(new InheritedEvent { Id = 123, Value = "ABC" });
+            Assert.True(sent, "did not send event to a known subscription");
+            Assert.True(handled, "did not handle lowest level event");
+        }
+
+        [Fact]
+        public void Publishes_to_multicast_handlers_with_interfaces()
+        {
+            bool handled = false;
+
+            var hub = new Hub();
+            hub.Subscribe<IEvent>(e => handled = true);
+
+            var sent = hub.Publish(new InheritedEvent { Id = 123, Value = "ABC" });
+            Assert.True(sent, "did not send event to a known subscription");
+            Assert.True(handled, "did not handle lowest level event");
+        }
     }
 }

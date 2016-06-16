@@ -64,32 +64,50 @@ namespace reactive.pipes
             // Closest match:
             SubscribeByDelegate(handler);
 
-            // Sibling tree (a delegate that fans out to all base event handlers that are subscribed):
-            Type type = typeof(T);
-            while (type != null && type.BaseType != typeof(object))
-            {
-                type = type.BaseType; // <-- go to next in base class hierarchy
+            Type baseType = typeof(T);
 
-                Type baseType = type;
-
-                const BindingFlags binding = BindingFlags.Static | BindingFlags.NonPublic;
-                MethodInfo method = typeof(Hub).GetMethod("WithEvent", binding);
-                MethodInfo generic = method.MakeGenericMethod(baseType);
-                
-                Action<T> fanOut = @event =>
-                {
-                    // A new handler for the top-level event type, that fans out dynamically to current sub-type subscriptions
-                    WeakReference subscription;
-                    if (baseType != null && _subscriptions.TryGetValue(baseType, out subscription))
-                    {
-                        generic.Invoke(this, new object[] { @event, subscription });
-                    }
-                };
-
-                SubscribeByDelegate(fanOut);
-            }
+            //
+            // Parent tree (all possible future subscriptions of super types should call to this sub-type)
+            //
+            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            IEnumerable<Type> types = assemblies.SelectMany(a => a.GetTypes());
+            IEnumerable<Type> superTypes = types.Where(t => t.IsSubclassOf(typeof(T)) || (typeof(T).IsAssignableFrom(t) && !t.IsInterface && t != baseType));
+            foreach (var superType in superTypes)
+                FanOutBottomUp(superType, baseType);
         }
 
+        private void FanOutBottomUp(Type superType, Type baseType)
+        {
+            // WithEvent<BaseEvent>(event, subscription);
+            const BindingFlags binding = BindingFlags.Static | BindingFlags.NonPublic;
+            MethodInfo method = typeof(Hub).GetMethod("WithEvent", binding);
+            MethodInfo generic = method.MakeGenericMethod(baseType);
+
+            // Action<InheritedEvent>(e => WithEvent(e, subscription));
+            var actionType = typeof(Action<>).MakeGenericType(superType);
+            var constructor = actionType.GetConstructors()[0];
+            var withEvent = new Action<object>(o =>
+            {
+                WeakReference subscription;
+                if (_subscriptions.TryGetValue(baseType, out subscription))
+                {
+                    generic.Invoke(this, new[] {o, subscription});
+                }
+            });
+
+            var fanIn = constructor.Invoke(new[]
+            {
+                withEvent.Target,
+                withEvent.Method.MethodHandle.GetFunctionPointer()
+            });
+
+            // SubscribeByDelegate(fanIn);
+            const BindingFlags subscribeBinding = BindingFlags.Instance | BindingFlags.NonPublic;
+            MethodInfo subscribe = typeof(Hub).GetMethod("SubscribeByDelegate", subscribeBinding);
+            MethodInfo subscribeGeneric = subscribe.MakeGenericMethod(superType);
+            subscribeGeneric.Invoke(this, new[] {fanIn});
+        }
+        
         public void Subscribe<T>(Action<T> handler, Func<T, bool> topic)
         {
             SubscribeByDelegateAndTopic(handler, topic);

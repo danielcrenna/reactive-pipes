@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using reactive.pipes.Consumers;
@@ -114,12 +115,22 @@ namespace reactive.pipes.Producers
         public void Produce(IList<T> events)
         {
             if (events.Count == 0) return;
-            foreach(var @event in events)
+            foreach (var @event in events)
             {
                 Produce(@event);
             }
         }
 
+        public void Produce(IEnumerable<T> stream, TimeSpan? interval = null)
+        {
+            IObservable<T> projection = new Func<IEnumerable<T>>(() => stream).AsContinuousObservable();
+
+            if (interval.HasValue)
+                Produce(projection.Buffer(interval.Value));
+            else
+                Produce(projection);
+        }
+        
         public void Produce(Func<T> func, TimeSpan? interval = null)
         {
             if (Buffer.IsAddingCompleted)
