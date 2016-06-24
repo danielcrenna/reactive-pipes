@@ -1,4 +1,6 @@
 ﻿using System;
+using System.CodeDom;
+using System.Threading.Tasks;
 using reactive.pipes;
 using reactive.tests.Fakes;
 using Xunit;
@@ -122,7 +124,7 @@ namespace reactive.tests
         }
 
         [Fact]
-        public void Publishes_to_multicast_handlers_with_interfaces()
+        public void Publishes_to_multicast_handlers_with_interfaces_with_delegate_consumer()
         {
             bool handled = false;
 
@@ -132,6 +134,16 @@ namespace reactive.tests
             var sent = hub.Publish(new InheritedEvent { Id = 123, Value = "ABC" });
             Assert.True(sent, "did not send event to a known subscription");
             Assert.True(handled, "did not handle lowest level event");
+        }
+
+        [Fact]
+        public void Publishes_to_multicast_handlers_with_interfaces_with_concrete_consumer()
+        {
+            var handler = new TestHandler();
+            var hub = new Hub();
+            hub.Subscribe(handler);
+            hub.Publish(new InheritedEvent());
+            Assert.True(handler.Handled, "did not handle lowest level event");
         }
     }
 }
