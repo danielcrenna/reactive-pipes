@@ -90,28 +90,28 @@ namespace reactive.pipes
             // Closest match:
             SubscribeByDelegate(handler);
 
-            SubscribeTree<T>(typeof(T));
+            SubscribeSiblings<T>(typeof(T));
         }
 
         public void Subscribe<T>(Action<T> handler, Func<T, bool> topic)
         {
             SubscribeByDelegateAndTopic(handler, topic);
 
-            SubscribeTree<T>(typeof(T));
+            SubscribeSiblings<T>(typeof(T));
         }
 
         public void Subscribe<T>(IConsume<T> consumer)
         {
             SubscribeByInterface(consumer);
 
-            SubscribeTree<T>(typeof(T));
+            SubscribeSiblings<T>(typeof(T));
         }
 
         public void Subscribe<T>(IConsume<T> consumer, Func<T, bool> topic)
         {
             SubscribeByInterfaceAndTopic(consumer, topic);
 
-            SubscribeTree<T>(typeof(T));
+            SubscribeSiblings<T>(typeof(T));
         }
         
         public void Unsubscribe<T>()
@@ -166,48 +166,42 @@ namespace reactive.pipes
             return (ISubject<T>)reference;
         }
 
-        private void SubscribeTree<T>(Type baseType)
+        private void SubscribeSiblings<T>(Type baseType)
         {
             //
             // Parent tree (all possible future subscriptions of super types should call to this sub-type)
             //
             Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
             IEnumerable<Type> types = assemblies.SelectMany(a => a.GetTypes());
-            IEnumerable<Type> superTypes = types.Where(t => t.IsSubclassOf(typeof(T)) || (typeof(T).IsAssignableFrom(t) && !t.IsInterface && t != baseType));
-            foreach (var superType in superTypes)
-                FanOutBottomUp(superType, baseType);
+            IEnumerable<Type> siblings = types.Where(t => t.IsSubclassOf(typeof(T)) || (typeof(T).IsAssignableFrom(t) && !t.IsInterface && t != baseType));
+            foreach (var superType in siblings)
+                SubscribeImplicit(superType, baseType);
         }
 
-        private void FanOutBottomUp(Type superType, Type baseType)
+        private void SubscribeImplicit(Type superType, Type baseType)
         {
             // WithEvent<BaseEvent>(event, subscription);
             const BindingFlags binding = BindingFlags.Static | BindingFlags.NonPublic;
-            MethodInfo method = typeof(Hub).GetMethod("WithEvent", binding);
+            MethodInfo method = typeof(Hub).GetTypeInfo().GetMethod("WithEvent", binding);
             MethodInfo generic = method.MakeGenericMethod(baseType);
 
             // Action<InheritedEvent>(e => WithEvent(e, subscription));
             var actionType = typeof(Action<>).MakeGenericType(superType);
-            var constructor = actionType.GetConstructors()[0];
             var withEvent = new Action<object>(o =>
             {
                 WeakReference subscription;
                 if (_subscriptions.TryGetValue(baseType, out subscription))
-                {
                     generic.Invoke(this, new[] { o, subscription });
-                }
             });
 
-            var fanIn = constructor.Invoke(new[]
-            {
-                withEvent.Target,
-                withEvent.Method.MethodHandle.GetFunctionPointer()
-            });
-
-            // SubscribeByDelegate(fanIn);
+            // SubscribeByDelegate(withEvent);
             const BindingFlags subscribeBinding = BindingFlags.Instance | BindingFlags.NonPublic;
-            MethodInfo subscribe = typeof(Hub).GetMethod("SubscribeByDelegate", subscribeBinding);
+            MethodInfo subscribe = typeof(Hub).GetTypeInfo().GetMethod("SubscribeByDelegate", subscribeBinding);
             MethodInfo subscribeGeneric = subscribe.MakeGenericMethod(superType);
-            subscribeGeneric.Invoke(this, new[] { fanIn });
+
+            MethodInfo mi = withEvent.GetMethodInfo();
+            Delegate closure = mi.CreateDelegate(actionType, withEvent.Target);
+            subscribeGeneric.Invoke(this, new object[] { closure });
         }
 
         public void Dispose()
