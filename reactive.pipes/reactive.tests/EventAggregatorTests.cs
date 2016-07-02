@@ -142,7 +142,9 @@ namespace reactive.tests
             int handled = 0;
 
             var hub = new Hub();
-            hub.Subscribe<IEvent>(e => handled++);
+            
+            Action<IEvent> handler = e => handled++;
+            hub.Subscribe(handler);
 
             var sent = hub.Publish(new InheritedEvent { Id = 123, Value = "ABC" });
             Assert.True(sent, "did not send event to a known subscription");

@@ -12,11 +12,6 @@ namespace reactive.pipes
     public interface IEventPublisher : IDisposable
     {
         Task<bool> PublishAsync(object @event);
-        Task<bool> PublishAsync<T>(T @event);
-
         bool Publish(object @event);
-        bool Publish<T>(T @event);
     }
-
-    
 }

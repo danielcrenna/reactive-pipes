@@ -21,17 +21,12 @@ namespace reactive.pipes
         private readonly ITypeResolver _typeResolver;
 
         private readonly Hashtable _byTypeDispatch = new Hashtable();
-        private readonly ConcurrentDictionary<Type, WeakReference> _subscriptions = new ConcurrentDictionary<Type, WeakReference>();
+        private readonly ConcurrentDictionary<Type, IDisposable> _subscriptions = new ConcurrentDictionary<Type, IDisposable>();
         private readonly ConcurrentDictionary<Type, CancellationTokenSource> _unsubscriptions = new ConcurrentDictionary<Type, CancellationTokenSource>();
 
         public Hub(ITypeResolver assemblyResolver = null)
         {
             _typeResolver = assemblyResolver ?? new AppDomainTypeResolver();
-        }
-
-        public async Task<bool> PublishAsync<T>(T @event)
-        {
-            return await Task.Run(()=> Publish(@event));
         }
 
         public async Task<bool> PublishAsync(object @event)
@@ -53,16 +48,10 @@ namespace reactive.pipes
             return (bool) byTypeDispatch.Invoke(this, new[] {@event});
         }
 
-        public bool Publish<T>(T @event)
-        {
-            return PublishTyped(@event);
-        }
-
         private bool PublishTyped<T>(T @event)
         {
-            WeakReference subscription;
-            var subscriptionType = typeof(T);
-            if (_subscriptions.TryGetValue(subscriptionType, out subscription))
+            IDisposable subscription;
+            if (_subscriptions.TryGetValue(typeof(T), out subscription))
             {
                 WithEvent(@event, subscription);
                 return true;
@@ -70,9 +59,9 @@ namespace reactive.pipes
             return false;
         }
 
-        private static void WithEvent<T>(T @event, WeakReference subscription)
+        private static void WithEvent<T>(T @event, object subscription)
         {
-            ISubject<T> subject = Box<T>(subscription);
+            ISubject<T> subject = (ISubject<T>) subscription;
 
             subject.OnNext(@event);
         }
@@ -82,7 +71,8 @@ namespace reactive.pipes
         {
             Type type = handler.GetType();
             Type[] interfaces = type.GetInterfaces();
-            IEnumerable<Type> consumers = interfaces.Where(i => typeof(IConsume<>).IsAssignableFrom(i.GetGenericTypeDefinition()));
+            IEnumerable<Type> consumers =
+                interfaces.Where(i => typeof(IConsume<>).IsAssignableFrom(i.GetGenericTypeDefinition()));
 
             const BindingFlags binding = BindingFlags.Instance | BindingFlags.NonPublic;
             MethodInfo subscribeByInterface = typeof(Hub).GetMethod(nameof(SubscribeByInterface), binding);
@@ -93,16 +83,15 @@ namespace reactive.pipes
             {
                 // SubscribeByInterface(consumer);
                 Type handlerType = consumer.GetGenericArguments()[0];
-                subscribeByInterface.MakeGenericMethod(handlerType).Invoke(this, new[] { handler });
+                subscribeByInterface.MakeGenericMethod(handlerType).Invoke(this, new[] {handler});
 
                 // SubscribeSiblings<T>(typeof(T));
-                subscribeSiblings.Invoke(this, new object[] { handlerType });
+                subscribeSiblings.Invoke(this, new object[] {handlerType});
             }
         }
 
         public void Subscribe<T>(Action<T> handler)
         {
-            // Closest match:
             SubscribeByDelegate(handler);
 
             SubscribeSiblings(typeof(T));
@@ -128,35 +117,45 @@ namespace reactive.pipes
 
             SubscribeSiblings(typeof(T));
         }
-        
+
         public void Unsubscribe<T>()
         {
-            WeakReference reference;
-            _subscriptions.TryRemove(typeof (T), out reference);
+            IDisposable reference;
+            _subscriptions.TryRemove(typeof(T), out reference);
 
             CancellationTokenSource cancel;
-            if(_unsubscriptions.TryGetValue(typeof(T), out cancel))
+            if (_unsubscriptions.TryGetValue(typeof(T), out cancel))
                 cancel.Cancel();
         }
 
         private void SubscribeByDelegate<T>(Action<T> handler)
         {
-            var subscription = GetSubscriptionSubject<T>();
-            var observable = Box<T>(subscription).AsObservable();
-            observable.Subscribe(handler);
+            IDisposable subscription = GetSubscriptionSubject<T>();
+            ISubject<T> subject = Box<T>(subscription);
+            IObservable<T> observable = subject.AsObservable();
+
+            var subscriptionType = typeof(T);
+            var unsubscription = _unsubscriptions.GetOrAdd(subscriptionType, t => new CancellationTokenSource());
+            observable.Subscribe(handler, exception => { }, () => { }, unsubscription.Token);
         }
 
         private void SubscribeByDelegateAndTopic<T>(Action<T> handler, Func<T, bool> topic)
         {
-            var subscription = GetSubscriptionSubject<T>();
-            var observable = Box<T>(subscription).Where(topic).AsObservable();
-            observable.Subscribe(handler);
+            IDisposable subscription = GetSubscriptionSubject<T>();
+            ISubject<T> subject = Box<T>(subscription);
+            IObservable<T> observable = subject.Where(topic).AsObservable();
+
+            var subscriptionType = typeof(T);
+            var unsubscription = _unsubscriptions.GetOrAdd(subscriptionType, t => new CancellationTokenSource());
+            observable.Subscribe(handler, exception => { }, () => { }, unsubscription.Token);
         }
 
         private void SubscribeByInterface<T>(IConsume<T> consumer)
         {
-            var subscription = GetSubscriptionSubject<T>();
-            var observable = Box<T>(subscription).AsObservable();
+            IDisposable subscription = GetSubscriptionSubject<T>();
+            ISubject<T> subject = Box<T>(subscription);
+            IObservable<T> observable = subject.AsObservable();
+
             var subscriptionType = typeof(T);
             var unsubscription = _unsubscriptions.GetOrAdd(subscriptionType, t => new CancellationTokenSource());
             observable.Subscribe(@event => consumer.HandleAsync(@event), exception => { }, () => { }, unsubscription.Token);
@@ -164,20 +163,30 @@ namespace reactive.pipes
 
         private void SubscribeByInterfaceAndTopic<T>(IConsume<T> consumer, Func<T, bool> topic)
         {
-            var subscription = GetSubscriptionSubject<T>();
-            var observable = Box<T>(subscription).Where(topic).AsObservable();
-            observable.Subscribe(@event => consumer.HandleAsync(@event), exception => { }, () => { });
+            IDisposable subscription = GetSubscriptionSubject<T>();
+            ISubject<T> subject = Box<T>(subscription);
+            IObservable<T> observable = subject.Where(topic);
+
+            var subscriptionType = typeof(T);
+            var unsubscription = _unsubscriptions.GetOrAdd(subscriptionType, t => new CancellationTokenSource());
+            observable.Subscribe(@event => consumer.HandleAsync(@event), exception => { }, () => { }, unsubscription.Token);
         }
 
-        private object GetSubscriptionSubject<T>()
+        private IDisposable GetSubscriptionSubject<T>()
         {
-            return _subscriptions.GetOrAdd(typeof(T), t => new WeakReference(new Subject<T>()));
+            Type subscriptionType = typeof(T);
+
+            return _subscriptions.GetOrAdd(subscriptionType, t =>
+            {
+                Subject<T> subject = new Subject<T>();
+
+                return subject;
+            });
         }
 
         private static ISubject<T> Box<T>(object subscription)
         {
-            object reference = ((WeakReference) subscription).Target;
-            ISubject<T> subject = (ISubject<T>)reference;
+            ISubject<T> subject = (ISubject<T>) subscription;
             return subject;
         }
 
@@ -185,7 +194,7 @@ namespace reactive.pipes
         {
             IEnumerable<Type> descendants = _typeResolver.GetDescendants(baseType);
 
-           foreach (Type superType in descendants)
+            foreach (Type superType in descendants)
             {
                 // This builds a forwarder for future subscriptions to supertypes, i.e.:
                 // If we ever get an InheritedEvent, we want to call any subscribers to
@@ -199,8 +208,10 @@ namespace reactive.pipes
             TypeInfo hubTypeInfo = typeof(Hub).GetTypeInfo();
 
             // WithEvent<BaseEvent>(event, subscription);
-            MethodInfo withEvent = hubTypeInfo.GetMethod(nameof(WithEvent), BindingFlags.Static | BindingFlags.NonPublic).MakeGenericMethod(baseType);
-            
+            MethodInfo withEvent =
+                hubTypeInfo.GetMethod(nameof(WithEvent), BindingFlags.Static | BindingFlags.NonPublic)
+                    .MakeGenericMethod(baseType);
+
             // Action<InheritedEvent>(e => WithEvent(e, subscription));
             var actionType = typeof(Action<>).MakeGenericType(superType);
             var action = new Action<object>(@event =>
@@ -210,19 +221,20 @@ namespace reactive.pipes
                 if (superType == @event.GetType())
                 {
                     // forward the event on to downstream subscriptions, if we have them
-                    WeakReference subscription;
+                    IDisposable subscription;
                     if (_subscriptions.TryGetValue(baseType, out subscription))
-                        withEvent.Invoke(this, new[] { @event, subscription });
+                        withEvent.Invoke(this, new[] {@event, subscription});
                 }
             });
 
             // SubscribeByDelegate(withEvent);
             const BindingFlags subscribeBinding = BindingFlags.Instance | BindingFlags.NonPublic;
-            MethodInfo subscribeByDelegate = hubTypeInfo.GetMethod(nameof(SubscribeByDelegate), subscribeBinding).MakeGenericMethod(superType);
-            
+            MethodInfo subscribeByDelegate =
+                hubTypeInfo.GetMethod(nameof(SubscribeByDelegate), subscribeBinding).MakeGenericMethod(superType);
+
             MethodInfo mi = action.GetMethodInfo();
             Delegate closure = mi.CreateDelegate(actionType, action.Target);
-            subscribeByDelegate.Invoke(this, new object[] { closure });
+            subscribeByDelegate.Invoke(this, new object[] {closure});
         }
 
         public void Dispose()
@@ -233,11 +245,11 @@ namespace reactive.pipes
 
         protected virtual void Dispose(bool disposing)
         {
-            if(!disposing || _subscriptions == null || _subscriptions.Count == 0)
+            if (!disposing || _subscriptions == null || _subscriptions.Count == 0)
                 return;
 
-            foreach (var subscription in _subscriptions.Where(subscription => subscription.Value.Target is IDisposable))
-                ((IDisposable)subscription.Value.Target).Dispose();
+            foreach (var subscription in _subscriptions.Where(subscription => subscription.Value != null))
+                subscription.Value.Dispose();
         }
     }
 }
