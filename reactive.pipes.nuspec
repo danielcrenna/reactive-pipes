@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>reactive.pipes</id>
-    <version>1.0.10</version>
+    <version>1.0.11</version>
     <authors>Daniel Crenna</authors>
     <owners>Daniel Crenna</owners>
     <description>A thin wrapper around Reactive Extensions for distributed application eventing middleware.</description>
@@ -24,7 +24,7 @@
     <copyright>(c) 2012-2016 Daniel Crenna</copyright>
     
     <releaseNotes>
-      - Fixed a bug in subscribing to base events with concrete consumers
+      - Fixed a bug in over-forwarding supertype events to basetype handlers
     </releaseNotes>
 
   </metadata>

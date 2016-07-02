@@ -5,11 +5,11 @@ namespace reactive.tests.Fakes
 {
     public class StringEventHandler : IConsume<StringEvent>
     {
-        public bool Handled { get; private set; }
+        public int Handled { get; private set; }
         
         public Task<bool> HandleAsync(StringEvent @event)
         {
-            Handled = true;
+            Handled++;
             return Task.FromResult(true);
         }
     }

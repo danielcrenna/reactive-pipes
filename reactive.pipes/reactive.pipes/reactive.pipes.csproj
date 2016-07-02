@@ -84,6 +84,7 @@
     <Compile Include="IPipe.cs" />
     <Compile Include="IProduce.cs" />
     <Compile Include="ISerializer.cs" />
+    <Compile Include="ITypeResolver.cs" />
     <Compile Include="Producers\BackgroundProducer.cs" />
     <Compile Include="Producers\BackgroundThreadProducer.cs" />
     <Compile Include="Producers\ActionObserver.cs" />
@@ -95,6 +96,7 @@
     <Compile Include="Producers\RetryDecision.cs" />
     <Compile Include="Producers\RetryPolicy.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="AppDomainTypeResolver.cs" />
     <Compile Include="Schedulers\CurrentThreadTaskScheduler.cs" />
     <Compile Include="Schedulers\LimitedConcurrencyLevelTaskScheduler.cs" />
     <Compile Include="Schedulers\OrderedTaskScheduler.cs" />

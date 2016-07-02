@@ -61,6 +61,7 @@
     <Compile Include="Fakes\BaseEvent.cs" />
     <Compile Include="Fakes\IEvent.cs" />
     <Compile Include="Fakes\InheritedEvent.cs" />
+    <Compile Include="Fakes\ManifoldHierarchicalEventHandler.cs" />
     <Compile Include="Fakes\TestHandler.cs" />
     <Compile Include="FileConsumerTests.cs" />
     <Compile Include="FileFolderFixture.cs" />

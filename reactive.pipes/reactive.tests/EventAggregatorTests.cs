@@ -1,6 +1,4 @@
 ﻿using System;
-using System.CodeDom;
-using System.Threading.Tasks;
 using reactive.pipes;
 using reactive.tests.Fakes;
 using Xunit;
@@ -14,12 +12,12 @@ namespace reactive.tests
         {
             var aggregator = new Hub();
 
-            var handled = false;
-            aggregator.Subscribe<StringEvent>(se => { handled = true; });
+            var handled = 0;
+            aggregator.Subscribe<StringEvent>(se => { handled++; });
 
             var sent = aggregator.Publish(new StringEvent("Foo"));
             Assert.True(sent);
-            Assert.True(handled);
+            Assert.Equal(1, handled);
         }
 
         [Fact]
@@ -27,16 +25,16 @@ namespace reactive.tests
         {
             var aggregator = new Hub();
 
-            var handled = false;
-            aggregator.Subscribe<StringEvent>(se => { handled = true; }, @event => @event.Text == "bababooey!");
+            var handled = 0;
+            aggregator.Subscribe<StringEvent>(se => { handled++; }, @event => @event.Text == "bababooey!");
 
             var sent = aggregator.Publish(new StringEvent("not bababooey!"));
             Assert.True(sent);
-            Assert.False(handled);
+            Assert.Equal(0, handled);
 
             sent = aggregator.Publish(new StringEvent("bababooey!"));
             Assert.True(sent);
-            Assert.True(handled);
+            Assert.Equal(1, handled);
         }
 
         [Fact]
@@ -49,7 +47,7 @@ namespace reactive.tests
 
             var sent = aggregator.Publish(new StringEvent("Foo"));
             Assert.True(sent);
-            Assert.True(handler.Handled);
+            Assert.Equal(1, handler.Handled);
         }
 
         [Fact]
@@ -57,16 +55,16 @@ namespace reactive.tests
         {
             var aggregator = new Hub();
 
-            bool handler1 = false;
-            bool handler2 = false;
+            int handler1 = 0;
+            int handler2 = 0;
 
-            aggregator.Subscribe<StringEvent>(e => { handler1 = true; });
-            aggregator.Subscribe<StringEvent>(e => { handler2 = true; });
+            aggregator.Subscribe<StringEvent>(e => { handler1++; });
+            aggregator.Subscribe<StringEvent>(e => { handler2++; });
 
             var sent = aggregator.Publish(new StringEvent("Foo"));
             Assert.True(sent);
-            Assert.True(handler1);
-            Assert.True(handler2);
+            Assert.Equal(1, handler1);
+            Assert.Equal(1, handler2);
         }
 
         [Fact]
@@ -79,13 +77,28 @@ namespace reactive.tests
 
             var sent = aggregator.Publish(new StringEvent("Foo"));
             Assert.True(sent);
-            Assert.True(handler.HandledString, "string event was not handled");
-            Assert.False(handler.HandledInteger, "integer event was improperly handled");
+            Assert.Equal(1, handler.HandledString);
+            Assert.Equal(0, handler.HandledInteger);
 
             sent = aggregator.Publish(new IntegerEvent(123));
             Assert.True(sent);
-            Assert.True(handler.HandledString, "string event handling result was lost");
-            Assert.True(handler.HandledInteger, "integer event was not handled");
+            Assert.Equal(1, handler.HandledString);
+            Assert.Equal(1, handler.HandledInteger);
+        }
+
+        [Fact]
+        public void Can_subscribe_with_manifold_hierarchical_consumer()
+        {
+            var aggregator = new Hub();
+
+            ManifoldHierarchicalEventHandler handler = new ManifoldHierarchicalEventHandler();
+            aggregator.Subscribe(handler);
+
+            var sent = aggregator.Publish(new InheritedEvent());
+            Assert.True(sent);
+            Assert.Equal(1, handler.HandledInterface);
+            Assert.Equal(1, handler.HandledBase);
+            Assert.Equal(1, handler.HandledInherited);
         }
 
         [Fact]
@@ -93,12 +106,12 @@ namespace reactive.tests
         {
             var aggregator = new Hub();
 
-            bool baseCalled = false;
-            bool inheritedCalled = false;
+            int baseCalled = 0;
+            int inheritedCalled = 0;
 
             // we need to have a subscription from InheritedEvent to all BaseEvent handlers!
-            Action<BaseEvent> handler1 = e => { baseCalled = true; };
-            Action<InheritedEvent> handler2 = e => { inheritedCalled = true; };
+            Action<BaseEvent> handler1 = e => { baseCalled++; };
+            Action<InheritedEvent> handler2 = e => { inheritedCalled++; };
 
             aggregator.Subscribe(handler1);
             aggregator.Subscribe(handler2);
@@ -106,34 +119,34 @@ namespace reactive.tests
             // one handler, many events (by virtue of class hierarchy)
             var sent = aggregator.Publish(new InheritedEvent { Id = 123, Value = "ABC" });
             Assert.True(sent);
-            Assert.True(inheritedCalled, "did not handle highest level event");
-            Assert.True(baseCalled, "did not handle lowest level event");
+            Assert.Equal(1, inheritedCalled);
+            Assert.Equal(1, baseCalled);
         }
 
         [Fact]
         public void Publishes_to_multicast_handlers_with_no_existing_subscriptions()
         {
-            bool handled = false;
+            int handled = 0;
 
             var hub = new Hub();
-            hub.Subscribe<BaseEvent>(e => handled = true);
+            hub.Subscribe<BaseEvent>(e => handled++);
             
             var sent = hub.Publish(new InheritedEvent { Id = 123, Value = "ABC" });
             Assert.True(sent, "did not send event to a known subscription");
-            Assert.True(handled, "did not handle lowest level event");
+            Assert.Equal(1, handled);
         }
 
         [Fact]
         public void Publishes_to_multicast_handlers_with_interfaces_with_delegate_consumer()
         {
-            bool handled = false;
+            int handled = 0;
 
             var hub = new Hub();
-            hub.Subscribe<IEvent>(e => handled = true);
+            hub.Subscribe<IEvent>(e => handled++);
 
             var sent = hub.Publish(new InheritedEvent { Id = 123, Value = "ABC" });
             Assert.True(sent, "did not send event to a known subscription");
-            Assert.True(handled, "did not handle lowest level event");
+            Assert.Equal(1, handled);
         }
 
         [Fact]
@@ -143,7 +156,7 @@ namespace reactive.tests
             var hub = new Hub();
             hub.Subscribe(handler);
             hub.Publish(new InheritedEvent());
-            Assert.True(handler.Handled, "did not handle lowest level event");
+            Assert.Equal(1, handler.Handled);
         }
     }
 }
