@@ -26,7 +26,7 @@ namespace reactive.pipes
 
         public Hub(ITypeResolver assemblyResolver = null)
         {
-            _typeResolver = assemblyResolver ?? new AppDomainTypeResolver();
+            _typeResolver = assemblyResolver ?? new ReflectionTypeResolver();
         }
 
         public async Task<bool> PublishAsync(object @event)
@@ -37,15 +37,35 @@ namespace reactive.pipes
         public bool Publish(object @event)
         {
             Type type = @event.GetType();
-            MethodInfo byTypeDispatch = _byTypeDispatch[type] as MethodInfo;
-            if (byTypeDispatch == null)
+            Action<object> dispatcher = _byTypeDispatch[type] as Action<object>;
+            if (dispatcher == null)
             {
-                const BindingFlags binding = BindingFlags.NonPublic | BindingFlags.Instance;
-                MethodInfo method = typeof(Hub).GetMethod(nameof(PublishTyped), binding);
-                byTypeDispatch = method.MakeGenericMethod(type);
-                _byTypeDispatch[type] = byTypeDispatch;
+                dispatcher = BuildByTypeDispatcher(type);
+                _byTypeDispatch[type] = dispatcher;
             }
-            return (bool) byTypeDispatch.Invoke(this, new[] {@event});
+            dispatcher(@event);
+            return true;
+        }
+
+        private Action<object> BuildByTypeDispatcher(Type superType)
+        {
+            const BindingFlags binding = BindingFlags.NonPublic | BindingFlags.Instance;
+            MethodInfo publishTyped = typeof(Hub).GetMethod(nameof(PublishTyped), binding);
+
+            Dictionary<Type, MethodInfo> dispatchers = new Dictionary<Type, MethodInfo>
+            {
+                {superType, publishTyped.MakeGenericMethod(superType)}
+            };
+            foreach (var childType in _typeResolver.GetAncestors(superType))
+                dispatchers.Add(childType, publishTyped.MakeGenericMethod(childType));
+
+            Action<object> action = @event =>
+            {
+                foreach (var dispatcher in dispatchers)
+                    dispatcher.Value.Invoke(this, new[] { @event });
+            };
+
+            return action;
         }
 
         private bool PublishTyped<T>(T @event)
@@ -53,69 +73,60 @@ namespace reactive.pipes
             IDisposable subscription;
             if (_subscriptions.TryGetValue(typeof(T), out subscription))
             {
-                WithEvent(@event, subscription);
-                return true;
+                ISubject<T> subject = (ISubject<T>)subscription;
+                try
+                {
+                    subject.OnNext(@event);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    subject.OnError(ex);
+                    return false;
+                }
             }
             return false;
         }
-
-        private static void WithEvent<T>(T @event, object subscription)
-        {
-            ISubject<T> subject = (ISubject<T>) subscription;
-
-            subject.OnNext(@event);
-        }
-
-        /// <summary> Subscribes a manifold handler. This is required if a handler acts as a consumer for more than one event type. </summary>
+        
+        /// <summary>
+        /// Subscribes a manifold handler. This is required if a handler acts as a consumer for more than one event type. 
+        /// </summary>
         public void Subscribe(object handler)
         {
             Type type = handler.GetType();
             Type[] interfaces = type.GetInterfaces();
-            IEnumerable<Type> consumers =
-                interfaces.Where(i => typeof(IConsume<>).IsAssignableFrom(i.GetGenericTypeDefinition()));
+            IEnumerable<Type> consumers = interfaces.Where(i => typeof(IConsume<>).IsAssignableFrom(i.GetGenericTypeDefinition()));
 
             const BindingFlags binding = BindingFlags.Instance | BindingFlags.NonPublic;
             MethodInfo subscribeByInterface = typeof(Hub).GetMethod(nameof(SubscribeByInterface), binding);
-            MethodInfo subscribeSiblings = typeof(Hub).GetMethod(nameof(SubscribeSiblings), binding);
-
+            
             // void Subscribe<T>(IConsume<T> consumer)
             foreach (var consumer in consumers)
             {
                 // SubscribeByInterface(consumer);
                 Type handlerType = consumer.GetGenericArguments()[0];
                 subscribeByInterface.MakeGenericMethod(handlerType).Invoke(this, new[] {handler});
-
-                // SubscribeSiblings<T>(typeof(T));
-                subscribeSiblings.Invoke(this, new object[] {handlerType});
             }
         }
 
         public void Subscribe<T>(Action<T> handler)
         {
             SubscribeByDelegate(handler);
-
-            SubscribeSiblings(typeof(T));
         }
 
         public void Subscribe<T>(Action<T> handler, Func<T, bool> topic)
         {
             SubscribeByDelegateAndTopic(handler, topic);
-
-            SubscribeSiblings(typeof(T));
         }
 
         public void Subscribe<T>(IConsume<T> consumer)
         {
             SubscribeByInterface(consumer);
-
-            SubscribeSiblings(typeof(T));
         }
 
         public void Subscribe<T>(IConsume<T> consumer, Func<T, bool> topic)
         {
             SubscribeByInterfaceAndTopic(consumer, topic);
-
-            SubscribeSiblings(typeof(T));
         }
 
         public void Unsubscribe<T>()
@@ -131,8 +142,8 @@ namespace reactive.pipes
         private void SubscribeByDelegate<T>(Action<T> handler)
         {
             IDisposable subscription = GetSubscriptionSubject<T>();
-            ISubject<T> subject = Box<T>(subscription);
-            IObservable<T> observable = subject.AsObservable();
+            ISubject<T> subject = (ISubject<T>) subscription;
+            IObservable <T> observable = subject.AsObservable();
 
             var subscriptionType = typeof(T);
             var unsubscription = _unsubscriptions.GetOrAdd(subscriptionType, t => new CancellationTokenSource());
@@ -142,7 +153,7 @@ namespace reactive.pipes
         private void SubscribeByDelegateAndTopic<T>(Action<T> handler, Func<T, bool> topic)
         {
             IDisposable subscription = GetSubscriptionSubject<T>();
-            ISubject<T> subject = Box<T>(subscription);
+            ISubject<T> subject = (ISubject<T>)subscription;
             IObservable<T> observable = subject.Where(topic).AsObservable();
 
             var subscriptionType = typeof(T);
@@ -153,7 +164,7 @@ namespace reactive.pipes
         private void SubscribeByInterface<T>(IConsume<T> consumer)
         {
             IDisposable subscription = GetSubscriptionSubject<T>();
-            ISubject<T> subject = Box<T>(subscription);
+            ISubject<T> subject = (ISubject<T>)subscription;
             IObservable<T> observable = subject.AsObservable();
 
             var subscriptionType = typeof(T);
@@ -164,7 +175,7 @@ namespace reactive.pipes
         private void SubscribeByInterfaceAndTopic<T>(IConsume<T> consumer, Func<T, bool> topic)
         {
             IDisposable subscription = GetSubscriptionSubject<T>();
-            ISubject<T> subject = Box<T>(subscription);
+            ISubject<T> subject = (ISubject<T>)subscription;
             IObservable<T> observable = subject.Where(topic);
 
             var subscriptionType = typeof(T);
@@ -183,60 +194,7 @@ namespace reactive.pipes
                 return subject;
             });
         }
-
-        private static ISubject<T> Box<T>(object subscription)
-        {
-            ISubject<T> subject = (ISubject<T>) subscription;
-            return subject;
-        }
-
-        private void SubscribeSiblings(Type baseType)
-        {
-            IEnumerable<Type> descendants = _typeResolver.GetDescendants(baseType);
-
-            foreach (Type superType in descendants)
-            {
-                // This builds a forwarder for future subscriptions to supertypes, i.e.:
-                // If we ever get an InheritedEvent, we want to call any subscribers to
-                // BaseEvent and pass that event along
-                SubscribeImplicit(superType, baseType);
-            }
-        }
-
-        private void SubscribeImplicit(Type superType, Type baseType)
-        {
-            TypeInfo hubTypeInfo = typeof(Hub).GetTypeInfo();
-
-            // WithEvent<BaseEvent>(event, subscription);
-            MethodInfo withEvent =
-                hubTypeInfo.GetMethod(nameof(WithEvent), BindingFlags.Static | BindingFlags.NonPublic)
-                    .MakeGenericMethod(baseType);
-
-            // Action<InheritedEvent>(e => WithEvent(e, subscription));
-            var actionType = typeof(Action<>).MakeGenericType(superType);
-            var action = new Action<object>(@event =>
-            {
-                // we are only allowed to forward if the parent has the same type, because
-                // otherwise we will likely send the same event to a handler multiple times
-                if (superType == @event.GetType())
-                {
-                    // forward the event on to downstream subscriptions, if we have them
-                    IDisposable subscription;
-                    if (_subscriptions.TryGetValue(baseType, out subscription))
-                        withEvent.Invoke(this, new[] {@event, subscription});
-                }
-            });
-
-            // SubscribeByDelegate(withEvent);
-            const BindingFlags subscribeBinding = BindingFlags.Instance | BindingFlags.NonPublic;
-            MethodInfo subscribeByDelegate =
-                hubTypeInfo.GetMethod(nameof(SubscribeByDelegate), subscribeBinding).MakeGenericMethod(superType);
-
-            MethodInfo mi = action.GetMethodInfo();
-            Delegate closure = mi.CreateDelegate(actionType, action.Target);
-            subscribeByDelegate.Invoke(this, new object[] {closure});
-        }
-
+        
         public void Dispose()
         {
             Dispose(true);
@@ -249,7 +207,17 @@ namespace reactive.pipes
                 return;
 
             foreach (var subscription in _subscriptions.Where(subscription => subscription.Value != null))
-                subscription.Value.Dispose();
+            {
+                IDisposable reference;
+                if (_subscriptions.TryRemove(subscription.Key, out reference))
+                {
+                    CancellationTokenSource cancel;
+                    if (_unsubscriptions.TryGetValue(subscription.Key, out cancel))
+                        cancel.Cancel();
+
+                    subscription.Value.Dispose();
+                }
+            }
         }
     }
 }

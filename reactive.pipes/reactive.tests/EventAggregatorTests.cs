@@ -102,6 +102,67 @@ namespace reactive.tests
         }
 
         [Fact]
+        public void Can_subscribe_with_multiple_hierarchical_consumers()
+        {
+            var aggregator = new Hub();
+
+            ManifoldHierarchicalEventHandler handler1 = new ManifoldHierarchicalEventHandler();
+            ManifoldHierarchicalEventHandler handler2 = new ManifoldHierarchicalEventHandler();
+            ManifoldHierarchicalEventHandler handler3 = new ManifoldHierarchicalEventHandler();
+
+            aggregator.Subscribe<IEvent>(handler1);
+            aggregator.Subscribe<BaseEvent>(handler2);
+            aggregator.Subscribe<InheritedEvent>(handler3);
+
+            var sent = aggregator.Publish(new InheritedEvent());
+            Assert.True(sent);
+            Assert.Equal(1, handler1.HandledInterface);
+            Assert.Equal(0, handler1.HandledBase);
+            Assert.Equal(0, handler1.HandledInherited);
+
+            Assert.Equal(0, handler2.HandledInterface);
+            Assert.Equal(1, handler2.HandledBase);
+            Assert.Equal(0, handler2.HandledInherited);
+
+            Assert.Equal(0, handler3.HandledInterface);
+            Assert.Equal(0, handler3.HandledBase);
+            Assert.Equal(1, handler3.HandledInherited);
+        }
+
+        [Fact]
+        public void Same_consumer_will_receive_duplicates()
+        {
+            // Important: the hub does not track references to handlers, so subscribing twice means you get two messages!
+
+            var handler1 = new TestHandler();
+            var aggregator = new Hub();
+            aggregator.Subscribe(handler1);
+            aggregator.Subscribe(handler1);
+            var sent = aggregator.Publish(new InheritedEvent { Id = 123, Value = "ABC" });
+            Assert.True(sent);
+            Assert.Equal(2, handler1.Handled);
+        }
+
+        [Fact]
+        public void Multiple_subscriptions_of_the_same_kind_dont_duplicate()
+        {
+            var handler1 = new TestHandler();
+            var handler2 = new TestHandler();
+            var handled = 0;
+
+            var aggregator = new Hub();
+            aggregator.Subscribe<IEvent>(handler1);
+            aggregator.Subscribe<IEvent>(e => handled++);
+            aggregator.Subscribe<IEvent>(handler2);
+
+            var sent = aggregator.Publish(new InheritedEvent { Id = 123, Value = "ABC" });
+            Assert.True(sent);
+            Assert.Equal(1, handler1.Handled);
+            Assert.Equal(1, handled);
+            Assert.Equal(1, handler2.Handled);
+        }
+
+        [Fact]
         public void Publishes_to_multicast_handlers()
         {
             var aggregator = new Hub();

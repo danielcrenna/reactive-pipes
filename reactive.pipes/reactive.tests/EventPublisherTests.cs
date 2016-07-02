@@ -9,14 +9,14 @@ namespace reactive.tests
         [Fact]
         public void Can_publish_events_by_type()
         {
-            bool handled = false;
+            var handled = 0;
             var hub = new Hub();
-            hub.Subscribe<InheritedEvent>(e => handled = true);
+            hub.Subscribe<InheritedEvent>(e => handled++);
             object @event = new InheritedEvent {Id = 123, Value = "ABC"};
             var sent = hub.Publish(@event);
 
             Assert.True(sent, "did not send event to a known subscription");
-            Assert.True(handled, "did not handle lowest level event");
+            Assert.Equal(1, handled);
         }
     }
 }

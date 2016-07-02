@@ -5,6 +5,7 @@ namespace reactive.pipes
 {
     public interface ITypeResolver
     {
+        IEnumerable<Type> GetAncestors(Type type);
         IEnumerable<Type> GetDescendants(Type type);
     }
 }
