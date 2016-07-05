@@ -59,10 +59,12 @@
     <Compile Include="EventAggregatorTests.cs" />
     <Compile Include="EventPublisherTests.cs" />
     <Compile Include="Fakes\BaseEvent.cs" />
+    <Compile Include="Fakes\FailingHandler.cs" />
     <Compile Include="Fakes\IEvent.cs" />
     <Compile Include="Fakes\InheritedEvent.cs" />
     <Compile Include="Fakes\ManifoldHierarchicalEventHandler.cs" />
-    <Compile Include="Fakes\TestHandler.cs" />
+    <Compile Include="Fakes\SuccessHandler.cs" />
+    <Compile Include="Fakes\ThrowingHandler.cs" />
     <Compile Include="FileConsumerTests.cs" />
     <Compile Include="FileFolderFixture.cs" />
     <Compile Include="Fakes\IntegerEvent.cs" />

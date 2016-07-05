@@ -23,10 +23,11 @@ namespace reactive.pipes
         private readonly Hashtable _byTypeDispatch = new Hashtable();
         private readonly ConcurrentDictionary<Type, IDisposable> _subscriptions = new ConcurrentDictionary<Type, IDisposable>();
         private readonly ConcurrentDictionary<Type, CancellationTokenSource> _unsubscriptions = new ConcurrentDictionary<Type, CancellationTokenSource>();
+        private readonly ConcurrentDictionary<Type, bool> _results = new ConcurrentDictionary<Type, bool>();
 
         public Hub(ITypeResolver assemblyResolver = null)
         {
-            _typeResolver = new DefaultTypeResolver();
+            _typeResolver = assemblyResolver ?? new DefaultTypeResolver();
         }
 
         public async Task<bool> PublishAsync(object @event)
@@ -37,17 +38,16 @@ namespace reactive.pipes
         public bool Publish(object @event)
         {
             Type type = @event.GetType();
-            Action<object> dispatcher = _byTypeDispatch[type] as Action<object>;
+            Func<object, bool> dispatcher = _byTypeDispatch[type] as Func<object, bool>;
             if (dispatcher == null)
             {
                 dispatcher = BuildByTypeDispatcher(type);
                 _byTypeDispatch[type] = dispatcher;
             }
-            dispatcher(@event);
-            return true;
+            return dispatcher(@event);
         }
 
-        private Action<object> BuildByTypeDispatcher(Type superType)
+        private Func<object, bool> BuildByTypeDispatcher(Type superType)
         {
             const BindingFlags binding = BindingFlags.NonPublic | BindingFlags.Instance;
             MethodInfo publishTyped = typeof(Hub).GetTypeInfo().GetMethod(nameof(PublishTyped), binding);
@@ -56,36 +56,48 @@ namespace reactive.pipes
             {
                 {superType, publishTyped.MakeGenericMethod(superType)}
             };
+
             foreach (var childType in _typeResolver.GetAncestors(superType))
                 dispatchers.Add(childType, publishTyped.MakeGenericMethod(childType));
 
-            Action<object> action = @event =>
+            Func<object, bool> function = @event =>
             {
+                bool result = true;
                 foreach (var dispatcher in dispatchers)
-                    dispatcher.Value.Invoke(this, new[] { @event });
+                {
+                    MethodInfo method = dispatcher.Value;
+
+                    bool handled = (bool)method.Invoke(this, new[] { @event });
+
+                    result &= handled;
+                }
+                return result;
             };
 
-            return action;
+            return function;
         }
 
         private bool PublishTyped<T>(T @event)
         {
             IDisposable subscription;
-            if (_subscriptions.TryGetValue(typeof(T), out subscription))
+            Type subscriptionType = typeof(T);
+
+            if (_subscriptions.TryGetValue(subscriptionType, out subscription))
             {
                 ISubject<T> subject = (ISubject<T>)subscription;
                 try
                 {
                     subject.OnNext(@event);
-                    return true;
+                    return _results[subscriptionType];
                 }
                 catch (Exception ex)
                 {
-                    subject.OnError(ex);
+                    subject.OnError(ex); // <-- this kind of exception will cancel the observable sequence
+                    _results[subscriptionType] = false;
                     return false;
                 }
             }
-            return false;
+            return true;
         }
 
         /// <summary>
@@ -145,20 +157,16 @@ namespace reactive.pipes
             ISubject<T> subject = (ISubject<T>)subscription;
             IObservable<T> observable = subject.AsObservable();
 
-            var subscriptionType = typeof(T);
-            var unsubscription = _unsubscriptions.GetOrAdd(subscriptionType, t => new CancellationTokenSource());
-            observable.Subscribe(handler, exception => { }, () => { }, unsubscription.Token);
+            SubscribeWithDelegate(handler, observable);
         }
 
         private void SubscribeByDelegateAndTopic<T>(Action<T> handler, Func<T, bool> topic)
         {
             IDisposable subscription = GetSubscriptionSubject<T>();
             ISubject<T> subject = (ISubject<T>)subscription;
-            IObservable<T> observable = subject.Where(topic).AsObservable();
+            IObservable<T> observable = subject.AsObservable();
 
-            var subscriptionType = typeof(T);
-            var unsubscription = _unsubscriptions.GetOrAdd(subscriptionType, t => new CancellationTokenSource());
-            observable.Subscribe(handler, exception => { }, () => { }, unsubscription.Token);
+            SubscribeWithDelegate(handler, observable, topic);
         }
 
         private void SubscribeByInterface<T>(IConsume<T> consumer)
@@ -167,20 +175,109 @@ namespace reactive.pipes
             ISubject<T> subject = (ISubject<T>)subscription;
             IObservable<T> observable = subject.AsObservable();
 
-            var subscriptionType = typeof(T);
-            var unsubscription = _unsubscriptions.GetOrAdd(subscriptionType, t => new CancellationTokenSource());
-            observable.Subscribe(@event => consumer.HandleAsync(@event), exception => { }, () => { }, unsubscription.Token);
+            SubscribeWithInterface(consumer, observable);
         }
 
         private void SubscribeByInterfaceAndTopic<T>(IConsume<T> consumer, Func<T, bool> topic)
         {
             IDisposable subscription = GetSubscriptionSubject<T>();
             ISubject<T> subject = (ISubject<T>)subscription;
-            IObservable<T> observable = subject.Where(topic);
+            IObservable<T> observable = subject.AsObservable();
 
+            SubscribeWithInterface(consumer, observable, topic);
+        }
+
+        private void SubscribeWithDelegate<T>(Action<T> handler, IObservable<T> observable, Func<T, bool> filter = null)
+        {
             var subscriptionType = typeof(T);
             var unsubscription = _unsubscriptions.GetOrAdd(subscriptionType, t => new CancellationTokenSource());
-            observable.Subscribe(@event => consumer.HandleAsync(@event), exception => { }, () => { }, unsubscription.Token);
+
+            if (filter != null)
+            {
+                observable.Subscribe(@event =>
+                {
+                    try
+                    {
+                        if (!filter(@event))
+                            _results[subscriptionType] = false;
+                        else
+                        {
+                            handler(@event);
+                            _results[subscriptionType] = true;
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        _results[subscriptionType] = false;
+                    }
+                }, exception =>
+                {
+                    _results[subscriptionType] = false;
+                }, () => { }, unsubscription.Token);
+            }
+            else
+            {
+                observable.Subscribe(@event =>
+                {
+                    try
+                    {
+                        handler(@event);
+                        _results[subscriptionType] = true;
+                    }
+                    catch (Exception)
+                    {
+                        _results[subscriptionType] = false;
+                    }
+                }, exception =>
+                {
+                    _results[subscriptionType] = false;
+                }, () => { }, unsubscription.Token);
+            }
+        }
+
+        private void SubscribeWithInterface<T>(IConsume<T> consumer, IObservable<T> observable, Func<T, bool> filter = null)
+        {
+            var subscriptionType = typeof(T);
+            var unsubscription = _unsubscriptions.GetOrAdd(subscriptionType, t => new CancellationTokenSource());
+
+            if (filter != null)
+            {
+                observable.Subscribe(@event =>
+                {
+                    try
+                    {
+                        if (!filter(@event))
+                            _results[subscriptionType] = false;
+                        else
+                            _results[subscriptionType] = consumer.HandleAsync(@event).ConfigureAwait(false).GetAwaiter().GetResult();
+                    }
+                    catch (Exception)
+                    {
+                        _results[subscriptionType] = false;
+                    }
+                }, exception => { }, () =>
+                {
+                    _results[subscriptionType] = false;
+                }, unsubscription.Token);
+            }
+            else
+            {
+                observable.Subscribe(@event =>
+                {
+                    try
+                    {
+                        _results[subscriptionType] = consumer.HandleAsync(@event).ConfigureAwait(false).GetAwaiter().GetResult();
+                    }
+                    catch
+                    {
+                        _results[subscriptionType] = false;
+                    }
+                }, exception => { }, () =>
+                {
+                    _results[subscriptionType] = false;
+                }, unsubscription.Token);
+            }
+            
         }
 
         private IDisposable GetSubscriptionSubject<T>()

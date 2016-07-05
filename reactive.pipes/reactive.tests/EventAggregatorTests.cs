@@ -29,7 +29,7 @@ namespace reactive.tests
             aggregator.Subscribe<StringEvent>(se => { handled++; }, @event => @event.Text == "bababooey!");
 
             var sent = aggregator.Publish(new StringEvent("not bababooey!"));
-            Assert.True(sent);
+            Assert.False(sent);
             Assert.Equal(0, handled);
 
             sent = aggregator.Publish(new StringEvent("bababooey!"));
@@ -134,7 +134,7 @@ namespace reactive.tests
         {
             // Important: the hub does not track references to handlers, so subscribing twice means you get two messages!
 
-            var handler1 = new TestHandler();
+            var handler1 = new SuccessHandler();
             var aggregator = new Hub();
             aggregator.Subscribe(handler1);
             aggregator.Subscribe(handler1);
@@ -146,8 +146,8 @@ namespace reactive.tests
         [Fact]
         public void Multiple_subscriptions_of_the_same_kind_dont_duplicate()
         {
-            var handler1 = new TestHandler();
-            var handler2 = new TestHandler();
+            var handler1 = new SuccessHandler();
+            var handler2 = new SuccessHandler();
             var handled = 0;
 
             var aggregator = new Hub();
@@ -215,11 +215,47 @@ namespace reactive.tests
         [Fact]
         public void Publishes_to_multicast_handlers_with_interfaces_with_concrete_consumer()
         {
-            var handler = new TestHandler();
+            var handler = new SuccessHandler();
             var hub = new Hub();
             hub.Subscribe(handler);
             hub.Publish(new InheritedEvent());
             Assert.Equal(1, handler.Handled);
+        }
+        
+        [Fact]
+        public void Handlers_survive_exceptions()
+        {
+            var handler = new ThrowingHandler();
+            var hub = new Hub();
+            hub.Subscribe(handler);
+
+            hub.Publish(new InheritedEvent());
+            Assert.Equal(1, handler.Handled);
+
+            hub.Publish(new InheritedEvent());
+            Assert.Equal(2, handler.Handled);
+        }
+
+        [Fact]
+        public void Handlers_can_return_false_safely()
+        {
+            var handler = new FailingHandler();
+            var hub = new Hub();
+            hub.Subscribe(handler);
+            bool result = hub.Publish(new InheritedEvent());
+            Assert.Equal(1, handler.Handled);
+            Assert.False(result);
+        }
+
+        [Fact]
+        public void Handlers_can_return_true_safely()
+        {
+            var handler = new SuccessHandler();
+            var hub = new Hub();
+            hub.Subscribe(handler);
+            bool result = hub.Publish(new InheritedEvent());
+            Assert.Equal(1, handler.Handled);
+            Assert.True(result);
         }
     }
 }

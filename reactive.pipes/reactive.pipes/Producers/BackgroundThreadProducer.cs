@@ -21,10 +21,9 @@ namespace reactive.pipes.Producers
     /// <typeparam name="T"></typeparam>
     public class BackgroundThreadProducer<T> : IProduce<T>, IDisposable
     {
-        private bool _started;
         private int _sent;
         private int _undelivered;
-        
+
         private Task _background;
         private CancellationTokenSource _cancel;
         private readonly SemaphoreSlim _empty;
@@ -33,33 +32,23 @@ namespace reactive.pipes.Producers
         private IConsume<T> _consumer;
         private IConsume<T> _backlogConsumer;
         private IConsume<T> _undeliverableConsumer;
-        
+
         public int MaxDegreeOfParallelism { get; set; }
-        
-        public TimeSpan Uptime
-        {
-            get { return _uptime.Elapsed; }
-        }
 
-        public int Sent
-        {
-            get { return _sent; }
-        }
+        public TimeSpan Uptime => _uptime.Elapsed;
 
-        public double Rate
-        {
-            get { return _sent / _uptime.Elapsed.TotalSeconds; }
-        }
-        
-        public int Queued
-        {
-            get { return Buffer.Count; }
-        }
-        
-        public int Undeliverable
-        {
-            get { return _undelivered; }
-        }
+        public int Sent => _sent;
+
+        public double Rate => _sent / _uptime.Elapsed.TotalSeconds;
+
+        public int Queued => Buffer.Count;
+
+        public int Undeliverable => _undelivered;
+
+        public bool Running { get; private set; }
+
+        public Action OnStarted { get; set; }
+        public Action OnStopped { get; set; }
 
         public RetryPolicy RetryPolicy { get; private set; }
 
@@ -70,9 +59,12 @@ namespace reactive.pipes.Producers
         public BackgroundThreadProducer(IObservable<T> source) : this()
         {
             Produce(source);
+
+            OnStarted = () => { };
+            OnStopped = () => { };
         }
 
-        public BackgroundThreadProducer(): this(new BlockingCollection<T>()) { }
+        public BackgroundThreadProducer() : this(new BlockingCollection<T>()) { }
 
         public BackgroundThreadProducer(int capacity) : this(new BlockingCollection<T>(capacity)) { }
 
@@ -114,11 +106,11 @@ namespace reactive.pipes.Producers
 
         public void Produce(IList<T> events)
         {
-            if (events.Count == 0) return;
+            if (events.Count == 0)
+                return;
+
             foreach (var @event in events)
-            {
                 Produce(@event);
-            }
         }
 
         public void Produce(IEnumerable<T> stream, TimeSpan? interval = null)
@@ -130,7 +122,7 @@ namespace reactive.pipes.Producers
             else
                 Produce(projection);
         }
-        
+
         public void Produce(Func<T> func, TimeSpan? interval = null)
         {
             if (Buffer.IsAddingCompleted)
@@ -141,7 +133,7 @@ namespace reactive.pipes.Producers
 
         public void Produce(IObservable<T> observable)
         {
-            if(Buffer.IsAddingCompleted)
+            if (Buffer.IsAddingCompleted)
             {
                 throw new InvalidOperationException("You cannot subscribe the buffer while stopping");
             }
@@ -198,7 +190,7 @@ namespace reactive.pipes.Producers
 
         public void Start()
         {
-            if (_started)
+            if (Running)
             {
                 return;
             }
@@ -206,19 +198,18 @@ namespace reactive.pipes.Producers
             if (_background != null)
             {
                 Stop();
-                _background.Dispose();
                 _background = null;
             }
 
             RequisitionBackgroundTask();
 
             _uptime.Start();
-            _started = true;
+            Running = true;
         }
 
         public void Stop()
         {
-            if (!_started)
+            if (!Running)
             {
                 return;
             }
@@ -239,7 +230,7 @@ namespace reactive.pipes.Producers
 
         private void ResetToInitialState()
         {
-            _started = false;
+            Running = false;
             Buffer = new BlockingCollection<T>();
         }
 
@@ -270,16 +261,15 @@ namespace reactive.pipes.Producers
             {
                 return;
             }
-            if (_started)
+
+            if (Running)
             {
                 Stop();
             }
-            if (_background != null)
-            {
-                _background.Dispose();
-                _background = null;
-            }      
-            if(_cancel != null)
+
+            _background = null;
+
+            if (_cancel != null)
             {
                 _cancel.Dispose();
                 _cancel = null;
@@ -299,7 +289,7 @@ namespace reactive.pipes.Producers
                 MaxDegreeOfParallelism = MaxDegreeOfParallelism,
                 CancellationToken = _cancel.Token
             };
-           
+
             _background = Task.Run(() =>
             {
                 try
@@ -342,7 +332,8 @@ namespace reactive.pipes.Producers
 
         private void ProduceOn(BlockingCollection<T> source, ParallelOptions options)
         {
-            var partitioner = source.GetConsumingPartitioner();
+            Partitioner<T> partitioner = source.GetConsumingPartitioner();
+
             Parallel.ForEach(partitioner, options, (@event, state) => ProductionCycle(options, @event, state));
         }
 
@@ -360,7 +351,7 @@ namespace reactive.pipes.Producers
             {
                 HandleUnsuccessfulDelivery(options, @event, state);
             }
-            
+
             Interlocked.Increment(ref _sent);
             options.CancellationToken.ThrowIfCancellationRequested();
         }
@@ -413,7 +404,7 @@ namespace reactive.pipes.Producers
             attempts = _attempts[hash];
             return attempts;
         }
-        
+
         private void WithEmptyWait(Action closure)
         {
             _empty.Wait();

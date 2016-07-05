@@ -3,7 +3,7 @@ using reactive.pipes;
 
 namespace reactive.tests.Fakes
 {
-    public class TestHandler : IConsume<IEvent>
+    public class SuccessHandler : IConsume<IEvent>
     {
         public int Handled { get; private set; }
 
