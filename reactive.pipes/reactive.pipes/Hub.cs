@@ -26,7 +26,7 @@ namespace reactive.pipes
 
         public Hub(ITypeResolver assemblyResolver = null)
         {
-            _typeResolver = assemblyResolver ?? new ReflectionTypeResolver();
+            _typeResolver = new DefaultTypeResolver();
         }
 
         public async Task<bool> PublishAsync(object @event)
@@ -50,7 +50,7 @@ namespace reactive.pipes
         private Action<object> BuildByTypeDispatcher(Type superType)
         {
             const BindingFlags binding = BindingFlags.NonPublic | BindingFlags.Instance;
-            MethodInfo publishTyped = typeof(Hub).GetMethod(nameof(PublishTyped), binding);
+            MethodInfo publishTyped = typeof(Hub).GetTypeInfo().GetMethod(nameof(PublishTyped), binding);
 
             Dictionary<Type, MethodInfo> dispatchers = new Dictionary<Type, MethodInfo>
             {
@@ -87,25 +87,25 @@ namespace reactive.pipes
             }
             return false;
         }
-        
+
         /// <summary>
         /// Subscribes a manifold handler. This is required if a handler acts as a consumer for more than one event type. 
         /// </summary>
         public void Subscribe(object handler)
         {
             Type type = handler.GetType();
-            Type[] interfaces = type.GetInterfaces();
-            IEnumerable<Type> consumers = interfaces.Where(i => typeof(IConsume<>).IsAssignableFrom(i.GetGenericTypeDefinition()));
+            Type[] interfaces = type.GetTypeInfo().GetInterfaces();
+            IEnumerable<Type> consumers = interfaces.Where(i => typeof(IConsume<>).GetTypeInfo().IsAssignableFrom(i.GetGenericTypeDefinition()));
 
             const BindingFlags binding = BindingFlags.Instance | BindingFlags.NonPublic;
-            MethodInfo subscribeByInterface = typeof(Hub).GetMethod(nameof(SubscribeByInterface), binding);
-            
+            MethodInfo subscribeByInterface = typeof(Hub).GetTypeInfo().GetMethod(nameof(SubscribeByInterface), binding);
+
             // void Subscribe<T>(IConsume<T> consumer)
             foreach (var consumer in consumers)
             {
                 // SubscribeByInterface(consumer);
-                Type handlerType = consumer.GetGenericArguments()[0];
-                subscribeByInterface.MakeGenericMethod(handlerType).Invoke(this, new[] {handler});
+                Type handlerType = consumer.GetTypeInfo().GetGenericArguments()[0];
+                subscribeByInterface.MakeGenericMethod(handlerType).Invoke(this, new[] { handler });
             }
         }
 
@@ -142,8 +142,8 @@ namespace reactive.pipes
         private void SubscribeByDelegate<T>(Action<T> handler)
         {
             IDisposable subscription = GetSubscriptionSubject<T>();
-            ISubject<T> subject = (ISubject<T>) subscription;
-            IObservable <T> observable = subject.AsObservable();
+            ISubject<T> subject = (ISubject<T>)subscription;
+            IObservable<T> observable = subject.AsObservable();
 
             var subscriptionType = typeof(T);
             var unsubscription = _unsubscriptions.GetOrAdd(subscriptionType, t => new CancellationTokenSource());
@@ -194,7 +194,7 @@ namespace reactive.pipes
                 return subject;
             });
         }
-        
+
         public void Dispose()
         {
             Dispose(true);

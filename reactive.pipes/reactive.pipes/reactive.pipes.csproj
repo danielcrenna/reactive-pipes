@@ -96,7 +96,7 @@
     <Compile Include="Producers\RetryDecision.cs" />
     <Compile Include="Producers\RetryPolicy.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="ReflectionTypeResolver.cs" />
+    <Compile Include="DefaultTypeResolver.cs" />
     <Compile Include="Schedulers\CurrentThreadTaskScheduler.cs" />
     <Compile Include="Schedulers\LimitedConcurrencyLevelTaskScheduler.cs" />
     <Compile Include="Schedulers\OrderedTaskScheduler.cs" />
