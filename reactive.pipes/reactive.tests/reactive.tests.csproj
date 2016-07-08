@@ -62,6 +62,7 @@
     <Compile Include="Fakes\FailingHandler.cs" />
     <Compile Include="Fakes\IEvent.cs" />
     <Compile Include="Fakes\InheritedEvent.cs" />
+    <Compile Include="Fakes\LongRunningHandler.cs" />
     <Compile Include="Fakes\ManifoldHierarchicalEventHandler.cs" />
     <Compile Include="Fakes\SuccessHandler.cs" />
     <Compile Include="Fakes\ThrowingHandler.cs" />

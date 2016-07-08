@@ -257,5 +257,16 @@ namespace reactive.tests
             Assert.Equal(1, handler.Handled);
             Assert.True(result);
         }
+
+        [Fact]
+        public void Synchronous_publish_works_with_asynchronous_handler()
+        {
+            var handler = new LongRunningAsyncHandler();
+            var hub = new Hub();
+            hub.Subscribe(handler);
+            bool result = hub.Publish(new InheritedEvent());
+            Assert.Equal(1, handler.Handled);
+            Assert.True(result);
+        }
     }
 }
