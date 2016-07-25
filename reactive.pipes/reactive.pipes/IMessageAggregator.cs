@@ -3,9 +3,9 @@ using System;
 namespace reactive.pipes
 {
     /// <summary>
-    /// An event aggregator allows for topical subscriptions to some source.
+    /// A message aggregator allows for topical subscriptions to some source.
     /// </summary>
-    public interface IEventAggregator
+    public interface IMessageAggregator
     {
         void Subscribe<T>(Action<T> @handler);
         void Subscribe<T>(Action<T> @handler, Func<T, bool> topic);

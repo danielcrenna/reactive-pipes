@@ -7,6 +7,19 @@ namespace reactive.pipes
 {
     public class DefaultTypeResolver : ITypeResolver
     {
+        public Type FindTypeByName(string typeName)
+        {
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+
+            IEnumerable<Type> loadedTypes =
+                assemblies.Where(a => a != typeof(object).Assembly)
+                    .SelectMany(a => a.GetTypes());
+
+            Type type = loadedTypes.FirstOrDefault(t => t.FullName.Equals(typeName, StringComparison.OrdinalIgnoreCase));
+
+            return type;
+        }
+
         public IEnumerable<Type> GetAncestors(Type type)
         {
             if (type?.GetTypeInfo().BaseType == null || type.GetTypeInfo().BaseType == typeof(object))

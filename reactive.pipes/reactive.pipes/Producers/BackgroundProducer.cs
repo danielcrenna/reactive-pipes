@@ -23,15 +23,16 @@ namespace reactive.pipes.Producers
             Background.Attach(consumer);
         }
 
-        public virtual void Start()
+        public virtual void Start(bool immediate = false)
         {
-            Background.Start();
+            Background.Start(immediate);
         }
 
-        public virtual void Stop()
+        public virtual void Stop(bool immediate = false)
         {
-            Background.Stop();
+            Background.Stop(immediate);
         }
+
         public void Dispose()
         {
             Dispose(true);

@@ -48,11 +48,12 @@ namespace reactive.pipes.Producers
         public bool Running { get; private set; }
 
         public Action OnStarted { get; set; }
+
         public Action OnStopped { get; set; }
 
-        public RetryPolicy RetryPolicy { get; private set; }
+        public RetryPolicy RetryPolicy { get; }
 
-        public RateLimitPolicy RateLimitPolicy { get; private set; }
+        public RateLimitPolicy RateLimitPolicy { get; }
 
         public BlockingCollection<T> Buffer { get; private set; }
 
@@ -137,6 +138,7 @@ namespace reactive.pipes.Producers
             {
                 throw new InvalidOperationException("You cannot subscribe the buffer while stopping");
             }
+
             observable.Subscribe(Produce, exception => { }, () => { }, _cancel.Token);
         }
 
@@ -146,6 +148,7 @@ namespace reactive.pipes.Producers
             {
                 throw new InvalidOperationException("You cannot subscribe the buffer while stopping");
             }
+
             observable.Subscribe(Produce, exception => { }, () => { }, _cancel.Token);
         }
 
@@ -155,6 +158,7 @@ namespace reactive.pipes.Producers
             {
                 throw new InvalidOperationException("You cannot subscribe the buffer while stopping");
             }
+
             observable.Subscribe(Produce, exception => { }, () => { }, _cancel.Token);
         }
 
@@ -188,7 +192,7 @@ namespace reactive.pipes.Producers
             _undeliverableConsumer = new ActionConsumer<T>(@delegate);
         }
 
-        public void Start()
+        public void Start(bool immediate = false)
         {
             if (Running)
             {
@@ -197,7 +201,7 @@ namespace reactive.pipes.Producers
 
             if (_background != null)
             {
-                Stop();
+                Stop(immediate);
                 _background = null;
             }
 
@@ -207,16 +211,17 @@ namespace reactive.pipes.Producers
             Running = true;
         }
 
-        public void Stop()
+        public void Stop(bool immediate = false)
         {
             if (!Running)
-            {
                 return;
-            }
 
             Buffer.CompleteAdding();
 
-            WaitForEmptyBuffer();
+            if (!immediate)
+                WaitForEmptyBuffer();
+            else
+                TransferBufferToBacklog();
 
             ResetToInitialState();
         }
@@ -284,7 +289,7 @@ namespace reactive.pipes.Producers
 
         private void RequisitionBackgroundTask()
         {
-            var options = new ParallelOptions
+            ParallelOptions options = new ParallelOptions
             {
                 MaxDegreeOfParallelism = MaxDegreeOfParallelism,
                 CancellationToken = _cancel.Token

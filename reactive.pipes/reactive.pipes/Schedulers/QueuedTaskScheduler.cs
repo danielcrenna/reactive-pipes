@@ -161,8 +161,8 @@ namespace System.Threading.Tasks.Schedulers
             _blockingTaskQueue = new BlockingCollection<Task>();
 
             // Create all of the threads
-            _threads = new Thread[threadCount];
-            for (int i = 0; i < threadCount; i++)
+            _threads = new Thread[_concurrencyLevel];
+            for (int i = 0; i < _concurrencyLevel; i++)
             {
                 _threads[i] = new Thread(() => ThreadBasedDispatchLoop(threadInit, threadFinally), threadMaxStackSize)
                 {

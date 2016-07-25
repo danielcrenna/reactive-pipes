@@ -16,7 +16,7 @@ namespace reactive.pipes
     /// 
     /// Basically, it is both an aggregator and a publisher, and is typically used to provide pub-sub services in-process.
     /// </summary>
-    public class Hub : IEventAggregator, IEventPublisher
+    public class Hub : IMessageAggregator, IMessagePublisher
     {
         private readonly ITypeResolver _typeResolver;
 
@@ -97,6 +97,7 @@ namespace reactive.pipes
                     return false;
                 }
             }
+
             return true;
         }
 
