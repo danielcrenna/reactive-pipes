@@ -77,7 +77,7 @@ AND
 AND 
     [SucceededAt] IS NULL
 AND 
-    ([RunAt] IS NULL OR ([RunAt] IS NOT NULL AND GETDATE() >= [RunAt]))
+    ([RunAt] <= GETUTCDATE())
 ORDER BY 
     [RunAt], [Priority] ASC
 ";
@@ -91,9 +91,9 @@ ORDER BY
                     foreach (var task in tasks)
                         task.RepeatInfo = GetRepeatInfo(task, db, t);
                 }
-
-                t.Commit();
                 
+                t.Commit();
+
                 return tasks;
             }
         }
@@ -147,7 +147,7 @@ SET
     MaximumAttempts = @MaximumAttempts, 
     DeleteOnSuccess = @DeleteOnSuccess,
     DeleteOnFailure = @DeleteOnFailure,
-    DeleteOnSuccess = @DeleteOnSuccess,
+    DeleteOnError = @DeleteOnError,
     LastError = @LastError,
     FailedAt = @FailedAt, 
     SucceededAt = @SucceededAt, 
@@ -186,7 +186,7 @@ INSERT INTO ScheduledTask
 VALUES
     (@Priority, @Attempts, @Handler, @RunAt, @MaximumRuntime, @MaximumAttempts, @DeleteOnSuccess, @DeleteOnFailure, @DeleteOnError);
 
-SELECT SCOPE_IDENTITY() AS [Id];
+SELECT MAX(Id) FROM [ScheduledTask];
 ";
             task.Id = db.Execute(sql, task, t);
             task.CreatedAt = db.Query<DateTimeOffset>("SELECT CreatedAt FROM ScheduledTask WHERE Id = @Id", task, t).Single();
@@ -207,10 +207,13 @@ VALUES
             {
                 ScheduledTaskId = task.Id,
 
-                task.RepeatInfo.PeriodFrequency,
-                task.RepeatInfo.PeriodQuantifier,
-                task.RepeatInfo.Start,
-                task.RepeatInfo.IncludeWeekends
+                task.RepeatInfo.Value.PeriodFrequency,
+                task.RepeatInfo.Value.PeriodQuantifier,
+                task.RepeatInfo.Value.Start,
+                task.RepeatInfo.Value.IncludeWeekends,
+                task.RepeatInfo.Value.ContinueOnSuccess,
+                task.RepeatInfo.Value.ContinueOnFailure,
+                task.RepeatInfo.Value.ContinueOnError
             }, t);
         }
 
@@ -227,20 +230,20 @@ SET
     ContinueOnFailure = @ContinueOnFailure,
     ContinueOnError = @ContinueOnError
 WHERE 
-    ScheduledJobId = @ScheduledJobId;
+    ScheduledTaskId = @ScheduledTaskId;
 ";
 
             db.Execute(sql, new
             {
                 ScheduledTaskId = task.Id,
 
-                task.RepeatInfo.PeriodFrequency,
-                task.RepeatInfo.PeriodQuantifier,
-                task.RepeatInfo.Start,
-                task.RepeatInfo.IncludeWeekends,
-                task.RepeatInfo.ContinueOnSuccess,
-                task.RepeatInfo.ContinueOnFailure,
-                task.RepeatInfo.ContinueOnError
+                task.RepeatInfo.Value.PeriodFrequency,
+                task.RepeatInfo.Value.PeriodQuantifier,
+                task.RepeatInfo.Value.Start,
+                task.RepeatInfo.Value.IncludeWeekends,
+                task.RepeatInfo.Value.ContinueOnSuccess,
+                task.RepeatInfo.Value.ContinueOnFailure,
+                task.RepeatInfo.Value.ContinueOnError
             }, t);
         }
 
@@ -254,19 +257,43 @@ WHERE ScheduledTaskId = @Id;
             db.Execute(sql, task, t);
         }
 
-        private static RepeatInfo GetRepeatInfo(ScheduledTask task, IDbConnection db, IDbTransaction t)
+        private static RepeatInfo? GetRepeatInfo(ScheduledTask task, IDbConnection db, IDbTransaction t)
         {
             const string sql = @"
-SELECT * 
+SELECT 
+    Start, 
+    PeriodFrequency, 
+    PeriodQuantifier, 
+    IncludeWeekends, 
+    ContinueOnSuccess, 
+    ContinueOnFailure, 
+    ContinueOnError
 FROM RepeatInfo 
 WHERE ScheduledTaskId = @Id
 ";
-            var result = db.Query(sql, task, t).SingleOrDefault();
+            var result = db.Query<RepeatInfoDto>(sql, task, t).SingleOrDefault();
             if (result == null)
                 return null;
+            
+            RepeatInfo repeatInfo = new RepeatInfo(result.Start, new DatePeriod(result.PeriodFrequency, result.PeriodQuantifier), includeWeekends: result.IncludeWeekends)
+            {
+                ContinueOnSuccess = result.ContinueOnSuccess,
+                ContinueOnFailure = result.ContinueOnFailure,
+                ContinueOnError = result.ContinueOnError
+            };
 
-            RepeatInfo repeatInfo = new RepeatInfo(result.Start, new DatePeriod(result.PeriodFrequency, result.PeriodQuantifier));
             return repeatInfo;
+        }
+
+        private class RepeatInfoDto
+        {
+            public DateTimeOffset Start;
+            public DatePeriodFrequency PeriodFrequency;
+            public int PeriodQuantifier;
+            public bool IncludeWeekends;
+            public bool ContinueOnSuccess;
+            public bool ContinueOnFailure;
+            public bool ContinueOnError;
         }
 
         private static void LockTasks(List<ScheduledTask> tasks, IDbConnection db, IDbTransaction t)

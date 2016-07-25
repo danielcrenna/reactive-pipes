@@ -67,7 +67,7 @@ namespace reactive.pipes.scheduled
             Background.AttachUndeliverable(WithFailedTasks);
         }
 
-        private IEnumerable<ScheduledTask> SeedJobFromQueue()
+        private IEnumerable<ScheduledTask> SeedTasksFromQueue()
         {
             return _settings.Store.GetAndLockNextAvailable(_settings.ReadAhead);
         }
@@ -75,9 +75,9 @@ namespace reactive.pipes.scheduled
         public override void Start(bool immediate = false)
         {
             if (_scheduler == null)
-                _scheduler = new QueuedTaskScheduler(0);
+                _scheduler = new QueuedTaskScheduler(_threads);
             
-            Background.Produce(SeedJobFromQueue, _settings.SleepInterval);
+            Background.Produce(SeedTasksFromQueue, _settings.SleepInterval);
 
             base.Start(immediate);
         }
@@ -174,6 +174,8 @@ namespace reactive.pipes.scheduled
         {
             bool deleted = false;
 
+            var now = DateTimeOffset.UtcNow;
+
             if (!success)
             {
                 if (JobWillFail(task))
@@ -183,7 +185,7 @@ namespace reactive.pipes.scheduled
                         _settings.Store.Delete(task);
                         deleted = true;
                     }
-                    task.FailedAt = DateTimeOffset.UtcNow;
+                    task.FailedAt = now;
                 }
             }
             else
@@ -193,34 +195,45 @@ namespace reactive.pipes.scheduled
                     _settings.Store.Delete(task);
                     deleted = true;
                 }
-                task.SucceededAt = DateTimeOffset.UtcNow;
+                task.SucceededAt = now;
             }
 
-            // Update:
             if (!deleted)
             {
+                // unlock for other workers
                 task.LockedAt = null;
                 task.LockedBy = null;
+
                 _settings.Store.Save(task);
-            }
 
-            // Spawn a new scheduled task using the repeat data (if applicable)
-            if (task.RepeatInfo?.NextOccurrence != null)
-            {
-                var repeat = task.RepeatInfo;
-
-                var shouldRepeat = success && repeat.ContinueOnSuccess ||
-                                   !success && repeat.ContinueOnFailure ||
-                                   exception != null && repeat.ContinueOnError;
-
-                if (shouldRepeat)
+                if (task.RepeatInfo?.NextOccurrence != null)
                 {
-                    task.Id = 0;
-                    task.RunAt = repeat.NextOccurrence.GetValueOrDefault();
-                    task.RepeatInfo.Start = task.RunAt;
+                    var repeatInfo = task.RepeatInfo.Value;
 
-                    _settings.ProvisionTask(task);
-                    _settings.Store.Save(task);
+                    var shouldRepeat = (success && repeatInfo.ContinueOnSuccess) ||
+                                       (!success && repeatInfo.ContinueOnFailure) ||
+                                       (exception != null && repeatInfo.ContinueOnError);
+
+                    if (shouldRepeat)
+                    {
+                        repeatInfo.Start = task.RunAt;
+                        DateTimeOffset? nextOccurrence = repeatInfo.NextOccurrence;
+
+                        var clone = new ScheduledTask
+                        {
+                            Priority = task.Priority,
+                            Handler = task.Handler,
+                            DeleteOnSuccess = task.DeleteOnSuccess,
+                            DeleteOnFailure = task.DeleteOnFailure,
+                            DeleteOnError = task.DeleteOnError,
+                            RepeatInfo = repeatInfo,
+                            RunAt = nextOccurrence.GetValueOrDefault(),
+                            MaximumAttempts = task.MaximumAttempts,
+                            MaximumRuntime = task.MaximumRuntime
+                        };
+
+                        _settings.Store.Save(clone);
+                    }
                 }
             }
         }

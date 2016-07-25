@@ -8,7 +8,8 @@ namespace reactive.pipes.scheduled
 {
     public class InMemoryScheduleStore : IScheduleStore
     {
-        private static int identity = 0;
+        private static int _identity;
+
         private readonly IDictionary<int, HashSet<ScheduledTask>>  _tasks;
 
         public InMemoryScheduleStore()
@@ -21,8 +22,12 @@ namespace reactive.pipes.scheduled
             HashSet<ScheduledTask> tasks;
             if(!_tasks.TryGetValue(task.Priority, out tasks))
                 _tasks.Add(task.Priority, tasks = new HashSet<ScheduledTask>());
-            tasks.Add(task);
-            task.Id = ++identity;
+
+            if (tasks.All(t => t.Id != task.Id))
+            {
+                tasks.Add(task);
+                task.Id = ++_identity;
+            }
         }
 
         public void Delete(ScheduledTask task)
@@ -32,27 +37,40 @@ namespace reactive.pipes.scheduled
                 tasks.Remove(task);
         }
 
+        private int fetches = 0;
+
         public IList<ScheduledTask> GetAndLockNextAvailable(int readAhead)
-        {   
+        {
             var all = _tasks.SelectMany(t => t.Value);
 
-            // None failed or succeeded, none locked, RunAt sorted, Priority sorted:
+            // None locked, failed or succeeded, must be due, ordered by due time then priority
+            var now = DateTimeOffset.UtcNow;
+
             var query = all
                 .Where(t => !t.FailedAt.HasValue && !t.SucceededAt.HasValue && !t.LockedAt.HasValue)
+                .Where(t => t.RunAt <= now)
                 .OrderBy(t => t.RunAt)
                 .ThenBy(t => t.Priority);
 
             var tasks = query.Count() > readAhead ? query.Take(readAhead).ToList() : query.ToList();
 
             // Lock tasks:
-            var now = DateTimeOffset.UtcNow;
-            foreach (ScheduledTask scheduledTask in tasks)
+            if (tasks.Any())
             {
-                scheduledTask.LockedAt = now;
+                foreach (ScheduledTask scheduledTask in tasks)
+                {
+                    scheduledTask.LockedAt = now;
 
-                var user = WindowsIdentity.GetCurrent();
-                scheduledTask.LockedBy = user == null ? Environment.UserName : user.Name;
+                    var user = WindowsIdentity.GetCurrent();
+                    scheduledTask.LockedBy = user == null ? Environment.UserName : user.Name;
+                }
             }
+            else
+            {
+                Console.WriteLine(0);
+            }
+
+            fetches++;
 
             return tasks;
         }

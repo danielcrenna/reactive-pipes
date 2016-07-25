@@ -13,12 +13,16 @@ namespace reactive.tests.Scheduled.Migrations
     }
 
     [Migration(2)]
-    public class Baseline : AutoReversingMigration
+    public class Baseline : Migration
     {
         public override void Up()
         {
+            const string schema = "dbo";
+
+            Execute.Sql($"CREATE SEQUENCE [{schema}].[ScheduledTask_Id] START WITH 1 INCREMENT BY 1");
+
             Create.Table("ScheduledTask")
-                .WithColumn("Id").AsInt32().Identity().PrimaryKey()
+                .WithColumn("Id").AsCustom($"INT DEFAULT(NEXT VALUE FOR [{schema}].[ScheduledTask_Id]) PRIMARY KEY CLUSTERED")
                 .WithColumn("Priority").AsInt32().NotNullable().WithDefaultValue(0)
                 .WithColumn("Attempts").AsInt32().NotNullable().WithDefaultValue(0)
                 .WithColumn("Handler").AsString(int.MaxValue).NotNullable()
@@ -37,12 +41,21 @@ namespace reactive.tests.Scheduled.Migrations
                 ;
 
             Create.Table("RepeatInfo")
-                .WithColumn("ScheduledTaskId").AsInt32().Identity().ForeignKey("ScheduledTask", "Id")
+                .WithColumn("ScheduledTaskId").AsInt32().ForeignKey("ScheduledTask", "Id").PrimaryKey()
                 .WithColumn("PeriodFrequency").AsInt32().NotNullable()
                 .WithColumn("PeriodQuantifier").AsInt32().NotNullable()
                 .WithColumn("Start").AsDateTimeOffset().NotNullable()
+                .WithColumn("ContinueOnSuccess").AsBoolean().NotNullable()
+                .WithColumn("ContinueOnFailure").AsBoolean().NotNullable()
+                .WithColumn("ContinueOnError").AsBoolean().NotNullable()
                 .WithColumn("IncludeWeekends").AsBoolean().NotNullable().WithDefaultValue(false)
                 ;
+        }
+
+        public override void Down()
+        {
+            Execute.Sql("DROP TABLE [ScheduledTask]");
+            Execute.Sql("DROP SEQUENCE [ScheduledTask_Id]");
         }
     }
 }

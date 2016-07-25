@@ -5,10 +5,8 @@ using Dates;
 
 namespace reactive.pipes.scheduled
 {
-    public class RepeatInfo : IEquatable<RepeatInfo>
+    public struct RepeatInfo : IEquatable<RepeatInfo>
     {
-        private static readonly IDictionary<int, IEnumerable<DateTimeOffset>> OccurrencesCache = new Dictionary<int, IEnumerable<DateTimeOffset>>();
-        
         public DatePeriod Period { get; set; }
         public DatePeriod? EndPeriod { get; set; }
         public DateTimeOffset Start { get; set; }
@@ -17,21 +15,22 @@ namespace reactive.pipes.scheduled
         public bool ContinueOnFailure { get; set; }
         public bool ContinueOnError { get; set; }
 
-        public IEnumerable<DateTimeOffset> AllOccurrences => GetSeriesOccurrences();
         public DatePeriodFrequency PeriodFrequency => Period.Frequency;
         public int PeriodQuantifier => Period.Quantifier;
         public DatePeriodFrequency? EndPeriodFrequency => EndPeriod?.Frequency;
         public int? EndPeriodQuantifier => EndPeriod?.Quantifier;
 
         public DateTimeOffset? NextOccurrence => GetNextOccurence();
-        public DateTimeOffset? LastOccurrence => EndPeriod.HasValue ? GetSeriesOccurrences().Last() : (DateTimeOffset?)null;
+        public DateTimeOffset? LastOccurrence => EndPeriod.HasValue ? GetFiniteSeriesOccurrences(EndPeriod.Value).Last() : (DateTimeOffset?)null;
+        public IEnumerable<DateTimeOffset> AllOccurrences => GetFiniteSeriesOccurrences();
 
-
-        internal RepeatInfo(DateTimeOffset start, DatePeriod period)
+        internal RepeatInfo(DateTimeOffset start, DatePeriod period, DatePeriod? endPeriod = null, bool includeWeekends = true)
         {
             Start = start;
             Period = period;
-            
+            EndPeriod = endPeriod;
+            IncludeWeekends = includeWeekends;
+                        
             ContinueOnSuccess = true;
             ContinueOnFailure = false;
             ContinueOnError = false;
@@ -39,25 +38,58 @@ namespace reactive.pipes.scheduled
         
         private DateTimeOffset? GetNextOccurence()
         {
-            if (!EndPeriod.HasValue)
+            // important: never iterate occurrences, the series could be inadvertently huge (i.e. 100 years of seconds)
+            if (EndPeriod == null)
             {
-                return GetSeriesOccurrences(new DatePeriod(DatePeriodFrequency.Years, 100)).FirstOrDefault();
+                return GetNextOccurrenceInInfiniteSeries();
             }
-            var occurrence = GetSeriesOccurrences().FirstOrDefault();
-            return occurrence;
+            else
+                return GetFiniteSeriesOccurrences(EndPeriod).FirstOrDefault();
         }
 
-        private IEnumerable<DateTimeOffset> GetSeriesOccurrences(DatePeriod? endPeriod = null)
+        private DateTimeOffset? GetNextOccurrenceInInfiniteSeries()
+        {
+            DateTimeOffset start = Start;
+            DateTimeOffset end;
+
+            // Get the last occurrence
+            switch (Period.Frequency)
+            {
+                case DatePeriodFrequency.Years:
+                    end = start.AddYears(Period.Quantifier);
+                    break;
+                case DatePeriodFrequency.Weeks:
+                    end = start.AddDays(Period.Quantifier*7);
+                    break;
+                case DatePeriodFrequency.Days:
+                    end = start.AddDays(Period.Quantifier);
+                    break;
+                case DatePeriodFrequency.Hours:
+                    end = start.AddHours(Period.Quantifier);
+                    break;
+                case DatePeriodFrequency.Minutes:
+                    end = start.AddHours(Period.Quantifier);
+                    break;
+                case DatePeriodFrequency.Seconds:
+                    end = start.AddSeconds(Period.Quantifier);
+                    break;
+                case DatePeriodFrequency.Months:
+                    end = start.AddMonths(Period.Quantifier);
+                    break;
+                default:
+                    throw new ArgumentException("DatePeriodFrequency");
+            }
+
+            return end;
+        }
+
+        private IEnumerable<DateTimeOffset> GetFiniteSeriesOccurrences(DatePeriod? endPeriod = null)
         {
             endPeriod = endPeriod ?? EndPeriod;
             if (!endPeriod.HasValue)
             {
-                throw new ArgumentException("You cannot request the occurrences for an infinite series");
+                throw new ArgumentException("You cannot request the occurrences for an infinite series", nameof(endPeriod));
             }
-
-            IEnumerable<DateTimeOffset> occurrences;
-            if (OccurrencesCache.TryGetValue(GetHashCode(), out occurrences))
-                return occurrences;
 
             DateTimeOffset start = Start;
             DateTimeOffset end;
@@ -90,8 +122,7 @@ namespace reactive.pipes.scheduled
                     throw new ArgumentException("DatePeriodFrequency");
             }
 
-            occurrences = Period.GetOccurrences(start, end, !IncludeWeekends).ToList();
-            OccurrencesCache.Add(GetHashCode(), occurrences);
+            var occurrences = Period.GetOccurrences(start, end, !IncludeWeekends).ToList();
             return occurrences;
         }
 

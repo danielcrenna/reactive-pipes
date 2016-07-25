@@ -34,6 +34,10 @@
       <HintPath>..\packages\Dapper.1.50.2\lib\net451\Dapper.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Dates, Version=1.0.0.0, Culture=neutral, PublicKeyToken=9e44dc0e8ba928e1, processorArchitecture=MSIL">
+      <HintPath>..\packages\Dates.1.0.3\lib\net40\Dates.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="FluentMigrator, Version=1.6.2.0, Culture=neutral, PublicKeyToken=aacfc7de5acabf05, processorArchitecture=MSIL">
       <HintPath>..\packages\FluentMigrator.1.6.2\lib\40\FluentMigrator.dll</HintPath>
       <Private>True</Private>

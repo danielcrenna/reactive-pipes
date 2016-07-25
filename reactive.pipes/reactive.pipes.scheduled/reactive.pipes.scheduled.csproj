@@ -35,7 +35,7 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="Dates, Version=1.0.0.0, Culture=neutral, PublicKeyToken=9e44dc0e8ba928e1, processorArchitecture=MSIL">
-      <HintPath>..\packages\Dates.1.0.3\lib\net40\Dates.dll</HintPath>
+      <HintPath>..\packages\Dates.1.0.4\lib\net40\Dates.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="ImpromptuInterface, Version=6.2.2.0, Culture=neutral, PublicKeyToken=0b1781c923b2975b, processorArchitecture=MSIL">

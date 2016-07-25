@@ -15,7 +15,7 @@ namespace reactive.pipes.scheduled
         public bool? DeleteOnSuccess { get; set; }
         public bool? DeleteOnFailure { get; set; }
         public bool? DeleteOnError { get; set; }
-        public RepeatInfo RepeatInfo { get; set; }
+        public RepeatInfo? RepeatInfo { get; set; }
         public DateTimeOffset CreatedAt { get; set; }
         public string LastError { get; set; }
         public DateTimeOffset? FailedAt { get; set; }

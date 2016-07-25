@@ -38,7 +38,7 @@ namespace reactive.pipes.Consumers
                     @delegate(@event);
                     return Task.FromResult(true);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     return Task.FromResult(false);
                 }
