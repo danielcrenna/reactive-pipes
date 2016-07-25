@@ -24,7 +24,7 @@ namespace reactive.pipes.scheduled
             {
                 db.Open();
 
-                var t = db.BeginTransaction(IsolationLevel.Serializable);
+                var t = db.BeginTransaction(IsolationLevel.ReadCommitted);
 
                 if (task.Id == 0)
                 {
@@ -188,7 +188,7 @@ VALUES
 
 SELECT MAX(Id) FROM [ScheduledTask];
 ";
-            task.Id = db.Execute(sql, task, t);
+            task.Id = db.Query<int>(sql, task, t).Single();
             task.CreatedAt = db.Query<DateTimeOffset>("SELECT CreatedAt FROM ScheduledTask WHERE Id = @Id", task, t).Single();
 
             if (task.RepeatInfo != null)
