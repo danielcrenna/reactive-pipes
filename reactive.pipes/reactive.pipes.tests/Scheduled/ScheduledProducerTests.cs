@@ -69,7 +69,7 @@ namespace reactive.tests.Scheduled
                 scheduler.Start(); // <-- starts background thread to poll for tasks
 
                 Assert.True(CountingHandler.Count == 0, "handler should not have queued immediately since tasks are delayed");
-                Thread.Sleep(TimeSpan.FromMinutes(1.5)); // <-- enough time for the next occurrence
+                Thread.Sleep(TimeSpan.FromMinutes(1.1)); // <-- enough time for the next occurrence
                 Assert.True(CountingHandler.Count > 0, "handler should have executed since we scheduled it in the future");
                 Assert.Equal(2, CountingHandler.Count);
             }   
