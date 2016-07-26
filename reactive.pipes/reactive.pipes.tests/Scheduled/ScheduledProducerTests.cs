@@ -59,22 +59,20 @@ namespace reactive.tests.Scheduled
                 ScheduledProducerSettings settings = new ScheduledProducerSettings
                 {
                     DelayTasks = true,
-                    Concurrency = 1,
+                    Concurrency = 0,
                     SleepInterval = TimeSpan.FromSeconds(1),
                     Store = new SqlScheduleStore(db.ConnectionString)
                 };
 
                 ScheduledProducer scheduler = new ScheduledProducer(settings);
-                scheduler.ScheduleAsync<CountingHandler>(DateTimeOffset.UtcNow, options: o => o.RepeatIndefinitely(new DatePeriod(DatePeriodFrequency.Seconds, 1)));
+                scheduler.ScheduleAsync<CountingHandler>(DateTimeOffset.UtcNow, options: o => o.RepeatIndefinitely(CronTemplates.Minutely()));
                 scheduler.Start(); // <-- starts background thread to poll for tasks
 
                 Assert.True(CountingHandler.Count == 0, "handler should not have queued immediately since tasks are delayed");
-                Thread.Sleep(3000); // <-- enough time for the next occurrence
+                Thread.Sleep(TimeSpan.FromMinutes(2)); // <-- enough time for the next occurrence
                 Assert.True(CountingHandler.Count > 0, "handler should have executed since we scheduled it in the future");
                 Assert.Equal(2, CountingHandler.Count);
-            }
-
-                
+            }   
         }
     }
 }

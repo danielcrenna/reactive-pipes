@@ -5,7 +5,6 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Security.Principal;
 using Dapper;
-using Dates;
 
 namespace reactive.pipes.scheduled
 {
@@ -18,13 +17,18 @@ namespace reactive.pipes.scheduled
             _connectionString = connectionString;
         }
 
+        private static SqlTransaction InTransaction(SqlConnection db)
+        {
+            return db.BeginTransaction(IsolationLevel.Serializable);
+        }
+
         public void Save(ScheduledTask task)
         {
             using (var db = new SqlConnection(_connectionString))
             {
                 db.Open();
 
-                var t = db.BeginTransaction(IsolationLevel.ReadCommitted);
+                var t = InTransaction(db);
 
                 if (task.Id == 0)
                 {
@@ -63,7 +67,7 @@ DELETE FROM RepeatInfo WHERE ScheduledTaskId = @Id;
             {
                 db.Open();
 
-                var t = db.BeginTransaction(IsolationLevel.Serializable);
+                var t = InTransaction(db);
 
                 // None locked, failed or succeeded, must be due, ordered by due time then priority
                 const string sql = @"
@@ -85,13 +89,8 @@ ORDER BY
                 var tasks = db.Query<ScheduledTask>(query, transaction: t).ToList();
 
                 if (tasks.Any())
-                {
                     LockTasks(tasks, db, t);
 
-                    foreach (var task in tasks)
-                        task.RepeatInfo = GetRepeatInfo(task, db, t);
-                }
-                
                 t.Commit();
 
                 return tasks;
@@ -104,16 +103,13 @@ ORDER BY
             {
                 db.Open();
 
-                var t = db.BeginTransaction(IsolationLevel.ReadUncommitted);
+                var t = InTransaction(db);
 
                 const string sql = @"
 SELECT * FROM ScheduledTask t
 WHERE t.Id = @Id
 ";
                 var task = db.Query<ScheduledTask>(sql, new {Id = id}, t).SingleOrDefault();
-
-                if (task != null)
-                    task.RepeatInfo = GetRepeatInfo(task, db, t);
 
                 return task;
             }
@@ -125,7 +121,7 @@ WHERE t.Id = @Id
             {
                 db.Open();
 
-                var t = db.BeginTransaction(IsolationLevel.ReadUncommitted);
+                var t = InTransaction(db);
 
                 const string sql = @"
 SELECT * FROM ScheduledTask t
@@ -148,6 +144,12 @@ SET
     DeleteOnSuccess = @DeleteOnSuccess,
     DeleteOnFailure = @DeleteOnFailure,
     DeleteOnError = @DeleteOnError,
+    Expression = @Expression, 
+    Start = @Start, 
+    [End] = @End,
+    ContinueOnSuccess = @ContinueOnSuccess,
+    ContinueOnFailure = @ContinueOnFailure,
+    ContinueOnError = @ContinueOnError,
     LastError = @LastError,
     FailedAt = @FailedAt, 
     SucceededAt = @SucceededAt, 
@@ -157,143 +159,20 @@ WHERE
     Id = @Id
 ";
             db.Execute(sql, task, t);
-
-            if (task.RepeatInfo != null)
-            {
-                if (GetRepeatInfo(task, db, t) == null)
-                {
-                    InsertRepeatInfo(task, db, t);
-                }
-                else
-                {
-                    UpdateRepeatInfo(task, db, t);
-                }
-            }
-            else
-            {
-                if (GetRepeatInfo(task, db, t) != null)
-                {
-                    DeleteRepeatInfo(task, db, t);
-                }
-            }
         }
 
         private static void InsertScheduledTask(ScheduledTask task, IDbConnection db, IDbTransaction t)
         {
             const string sql = @"
 INSERT INTO ScheduledTask
-    (Priority, Attempts, Handler, RunAt, MaximumRuntime, MaximumAttempts, DeleteOnSuccess, DeleteOnFailure, DeleteOnError) 
+    (Priority, Attempts, Handler, RunAt, MaximumRuntime, MaximumAttempts, DeleteOnSuccess, DeleteOnFailure, DeleteOnError, Expression, Start, [End], ContinueOnSuccess, ContinueOnFailure, ContinueOnError) 
 VALUES
-    (@Priority, @Attempts, @Handler, @RunAt, @MaximumRuntime, @MaximumAttempts, @DeleteOnSuccess, @DeleteOnFailure, @DeleteOnError);
+    (@Priority, @Attempts, @Handler, @RunAt, @MaximumRuntime, @MaximumAttempts, @DeleteOnSuccess, @DeleteOnFailure, @DeleteOnError, @Expression, @Start, @End, @ContinueOnSuccess, @ContinueOnFailure, @ContinueOnError);
 
 SELECT MAX(Id) FROM [ScheduledTask];
 ";
             task.Id = db.Query<int>(sql, task, t).Single();
             task.CreatedAt = db.Query<DateTimeOffset>("SELECT CreatedAt FROM ScheduledTask WHERE Id = @Id", task, t).Single();
-
-            if (task.RepeatInfo != null)
-                InsertRepeatInfo(task, db, t);
-        }
-
-        private static void InsertRepeatInfo(ScheduledTask task, IDbConnection db, IDbTransaction t)
-        {
-            const string sql = @"
-INSERT INTO RepeatInfo 
-    (ScheduledTaskId, PeriodFrequency, PeriodQuantifier, Start, IncludeWeekends, ContinueOnSuccess, ContinueOnFailure, ContinueOnError) 
-VALUES
-    (@ScheduledTaskId, @PeriodFrequency, @PeriodQuantifier, @Start, @IncludeWeekends, @ContinueOnSuccess, @ContinueOnFailure, @ContinueOnError);
-";
-            db.Execute(sql, new
-            {
-                ScheduledTaskId = task.Id,
-
-                task.RepeatInfo.Value.PeriodFrequency,
-                task.RepeatInfo.Value.PeriodQuantifier,
-                task.RepeatInfo.Value.Start,
-                task.RepeatInfo.Value.IncludeWeekends,
-                task.RepeatInfo.Value.ContinueOnSuccess,
-                task.RepeatInfo.Value.ContinueOnFailure,
-                task.RepeatInfo.Value.ContinueOnError
-            }, t);
-        }
-
-        private static void UpdateRepeatInfo(ScheduledTask task, IDbConnection db, IDbTransaction t)
-        {
-            const string sql = @"
-UPDATE RepeatInfo 
-SET
-    PeriodFrequency = @PeriodFrequency, 
-    PeriodQuantifier = @PeriodQuantifier, 
-    Start = @Start, 
-    IncludeWeekends = @IncludeWeekends,
-    ContinueOnSuccess = @ContinueOnSuccess,
-    ContinueOnFailure = @ContinueOnFailure,
-    ContinueOnError = @ContinueOnError
-WHERE 
-    ScheduledTaskId = @ScheduledTaskId;
-";
-
-            db.Execute(sql, new
-            {
-                ScheduledTaskId = task.Id,
-
-                task.RepeatInfo.Value.PeriodFrequency,
-                task.RepeatInfo.Value.PeriodQuantifier,
-                task.RepeatInfo.Value.Start,
-                task.RepeatInfo.Value.IncludeWeekends,
-                task.RepeatInfo.Value.ContinueOnSuccess,
-                task.RepeatInfo.Value.ContinueOnFailure,
-                task.RepeatInfo.Value.ContinueOnError
-            }, t);
-        }
-
-        private static void DeleteRepeatInfo(ScheduledTask task, IDbConnection db, IDbTransaction t)
-        {
-            const string sql = @"
-DELETE 
-FROM RepeatInfo 
-WHERE ScheduledTaskId = @Id;
-";
-            db.Execute(sql, task, t);
-        }
-
-        private static RepeatInfo? GetRepeatInfo(ScheduledTask task, IDbConnection db, IDbTransaction t)
-        {
-            const string sql = @"
-SELECT 
-    Start, 
-    PeriodFrequency, 
-    PeriodQuantifier, 
-    IncludeWeekends, 
-    ContinueOnSuccess, 
-    ContinueOnFailure, 
-    ContinueOnError
-FROM RepeatInfo 
-WHERE ScheduledTaskId = @Id
-";
-            var result = db.Query<RepeatInfoDto>(sql, task, t).SingleOrDefault();
-            if (result == null)
-                return null;
-            
-            RepeatInfo repeatInfo = new RepeatInfo(result.Start, new DatePeriod(result.PeriodFrequency, result.PeriodQuantifier), includeWeekends: result.IncludeWeekends)
-            {
-                ContinueOnSuccess = result.ContinueOnSuccess,
-                ContinueOnFailure = result.ContinueOnFailure,
-                ContinueOnError = result.ContinueOnError
-            };
-
-            return repeatInfo;
-        }
-
-        private class RepeatInfoDto
-        {
-            public DateTimeOffset Start;
-            public DatePeriodFrequency PeriodFrequency;
-            public int PeriodQuantifier;
-            public bool IncludeWeekends;
-            public bool ContinueOnSuccess;
-            public bool ContinueOnFailure;
-            public bool ContinueOnError;
         }
 
         private static void LockTasks(List<ScheduledTask> tasks, IDbConnection db, IDbTransaction t)

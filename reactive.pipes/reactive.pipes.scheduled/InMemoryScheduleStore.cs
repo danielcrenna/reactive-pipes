@@ -36,9 +36,7 @@ namespace reactive.pipes.scheduled
             if (_tasks.TryGetValue(task.Priority, out tasks))
                 tasks.Remove(task);
         }
-
-        private int fetches = 0;
-
+       
         public IList<ScheduledTask> GetAndLockNextAvailable(int readAhead)
         {
             var all = _tasks.SelectMany(t => t.Value);
@@ -60,17 +58,10 @@ namespace reactive.pipes.scheduled
                 foreach (ScheduledTask scheduledTask in tasks)
                 {
                     scheduledTask.LockedAt = now;
-
                     var user = WindowsIdentity.GetCurrent();
                     scheduledTask.LockedBy = user == null ? Environment.UserName : user.Name;
                 }
             }
-            else
-            {
-                Console.WriteLine(0);
-            }
-
-            fetches++;
 
             return tasks;
         }

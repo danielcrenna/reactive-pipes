@@ -38,17 +38,13 @@ namespace reactive.tests.Scheduled.Migrations
                 .WithColumn("SucceededAt").AsDateTimeOffset().Nullable()
                 .WithColumn("LockedAt").AsDateTimeOffset().Nullable()
                 .WithColumn("LockedBy").AsString().Nullable()
-                ;
-
-            Create.Table("RepeatInfo")
-                .WithColumn("ScheduledTaskId").AsInt32().ForeignKey("ScheduledTask", "Id").PrimaryKey()
-                .WithColumn("PeriodFrequency").AsInt32().NotNullable()
-                .WithColumn("PeriodQuantifier").AsInt32().NotNullable()
+                // RepeatInfo
+                .WithColumn("Expression").AsAnsiString().NotNullable()
                 .WithColumn("Start").AsDateTimeOffset().NotNullable()
                 .WithColumn("ContinueOnSuccess").AsBoolean().NotNullable()
                 .WithColumn("ContinueOnFailure").AsBoolean().NotNullable()
                 .WithColumn("ContinueOnError").AsBoolean().NotNullable()
-                .WithColumn("IncludeWeekends").AsBoolean().NotNullable().WithDefaultValue(false)
+                .WithColumn("End").AsDateTimeOffset().Nullable()
                 ;
         }
 

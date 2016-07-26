@@ -206,18 +206,16 @@ namespace reactive.pipes.scheduled
 
                 _settings.Store.Save(task);
 
-                if (task.RepeatInfo?.NextOccurrence != null)
+                if (task.NextOccurrence != null)
                 {
-                    var repeatInfo = task.RepeatInfo.Value;
-
-                    var shouldRepeat = (success && repeatInfo.ContinueOnSuccess) ||
-                                       (!success && repeatInfo.ContinueOnFailure) ||
-                                       (exception != null && repeatInfo.ContinueOnError);
+                    var shouldRepeat = (success && task.ContinueOnSuccess) ||
+                                       (!success && task.ContinueOnFailure) ||
+                                       (exception != null && task.ContinueOnError);
 
                     if (shouldRepeat)
                     {
-                        repeatInfo.Start = task.RunAt;
-                        DateTimeOffset? nextOccurrence = repeatInfo.NextOccurrence;
+                        task.Start = task.RunAt;
+                        DateTimeOffset? nextOccurrence = task.NextOccurrence;
 
                         var clone = new ScheduledTask
                         {
@@ -226,7 +224,12 @@ namespace reactive.pipes.scheduled
                             DeleteOnSuccess = task.DeleteOnSuccess,
                             DeleteOnFailure = task.DeleteOnFailure,
                             DeleteOnError = task.DeleteOnError,
-                            RepeatInfo = repeatInfo,
+                            Expression = task.Expression,
+                            Start = task.Start,
+                            End = task.End,
+                            ContinueOnSuccess = task.ContinueOnSuccess,
+                            ContinueOnFailure = task.ContinueOnFailure,
+                            ContinueOnError = task.ContinueOnError,
                             RunAt = nextOccurrence.GetValueOrDefault(),
                             MaximumAttempts = task.MaximumAttempts,
                             MaximumRuntime = task.MaximumRuntime

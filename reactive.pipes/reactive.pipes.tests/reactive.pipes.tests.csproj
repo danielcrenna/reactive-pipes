@@ -45,6 +45,10 @@
     <Reference Include="FluentMigrator.Runner">
       <HintPath>..\packages\FluentMigrator.Tools.1.6.2\tools\AnyCPU\40\FluentMigrator.Runner.dll</HintPath>
     </Reference>
+    <Reference Include="NCrontab, Version=3.1.19111.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\ncrontab.3.1.0\lib\net45\NCrontab.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -89,6 +93,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Fakes\StringEvent.cs" />
     <Compile Include="Fakes\StringEventHandler.cs" />
+    <Compile Include="Scheduled\CronTemplatesTests.cs" />
     <Compile Include="Scheduled\Fakes\CountingHandler.cs" />
     <Compile Include="Scheduled\InMemoryScheduleStoreTests.cs" />
     <Compile Include="Scheduled\Migrations\Migrations.cs" />
