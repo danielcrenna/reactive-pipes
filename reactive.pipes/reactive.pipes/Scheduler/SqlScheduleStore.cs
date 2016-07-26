@@ -6,7 +6,7 @@ using System.Linq;
 using System.Security.Principal;
 using Dapper;
 
-namespace reactive.pipes.scheduled
+namespace reactive.pipes.Scheduler
 {
     public class SqlScheduleStore : IScheduleStore
     {

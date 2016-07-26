@@ -2,7 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Dates;
-using reactive.pipes.scheduled;
+using reactive.pipes.Scheduler;
 using reactive.tests.Fixtures;
 using reactive.tests.Scheduled.Fakes;
 using reactive.tests.Scheduled.Migrations;

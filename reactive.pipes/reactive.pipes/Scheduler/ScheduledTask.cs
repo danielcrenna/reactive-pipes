@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NCrontab;
 
-namespace reactive.pipes.scheduled
+namespace reactive.pipes.Scheduler
 {
     public class ScheduledTask
     {

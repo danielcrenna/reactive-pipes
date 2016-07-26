@@ -16,8 +16,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		..\README.md = ..\README.md
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "reactive.pipes.scheduled", "reactive.pipes.scheduled\reactive.pipes.scheduled.csproj", "{5604A592-CC5D-4B3A-BAA8-364126E9433E}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "reactive.pipes.tests", "reactive.pipes.tests\reactive.pipes.tests.csproj", "{904B35EE-BC07-4B62-81AF-20517A0F32C3}"
 EndProject
 Global
@@ -34,10 +32,6 @@ Global
 		{3F1964E7-8EF1-4CC7-B510-571252D92756}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3F1964E7-8EF1-4CC7-B510-571252D92756}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3F1964E7-8EF1-4CC7-B510-571252D92756}.Release|Any CPU.Build.0 = Release|Any CPU
-		{5604A592-CC5D-4B3A-BAA8-364126E9433E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5604A592-CC5D-4B3A-BAA8-364126E9433E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5604A592-CC5D-4B3A-BAA8-364126E9433E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5604A592-CC5D-4B3A-BAA8-364126E9433E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{904B35EE-BC07-4B62-81AF-20517A0F32C3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{904B35EE-BC07-4B62-81AF-20517A0F32C3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{904B35EE-BC07-4B62-81AF-20517A0F32C3}.Release|Any CPU.ActiveCfg = Release|Any CPU

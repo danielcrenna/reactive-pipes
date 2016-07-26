@@ -1,4 +1,4 @@
-using reactive.pipes.scheduled;
+using reactive.pipes.Scheduler;
 
 namespace reactive.tests.Scheduled
 {

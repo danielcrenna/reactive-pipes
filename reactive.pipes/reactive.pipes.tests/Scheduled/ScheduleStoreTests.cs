@@ -1,4 +1,4 @@
-using reactive.pipes.scheduled;
+using reactive.pipes.Scheduler;
 using Xunit;
 
 namespace reactive.tests.Scheduled

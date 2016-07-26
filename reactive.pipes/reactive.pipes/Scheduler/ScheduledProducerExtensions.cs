@@ -1,7 +1,7 @@
 ﻿using System;
 using Newtonsoft.Json;
 
-namespace reactive.pipes.scheduled
+namespace reactive.pipes.Scheduler
 {
     public static class ScheduledProducerExtensions
     {

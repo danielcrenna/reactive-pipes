@@ -1,4 +1,4 @@
-namespace reactive.pipes.scheduled
+namespace reactive.pipes.Scheduler
 {
     /// <summary>
     /// Stores method hooks. Used as a cache key for running tasks.

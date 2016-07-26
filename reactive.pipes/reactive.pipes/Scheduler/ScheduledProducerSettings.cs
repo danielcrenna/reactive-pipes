@@ -1,6 +1,6 @@
 using System;
 
-namespace reactive.pipes.scheduled
+namespace reactive.pipes.Scheduler
 {
     public class ScheduledProducerSettings
     {

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Principal;
 
-namespace reactive.pipes.scheduled
+namespace reactive.pipes.Scheduler
 {
     public class InMemoryScheduleStore : IScheduleStore
     {

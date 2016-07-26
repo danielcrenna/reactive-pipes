@@ -10,7 +10,7 @@ using ImpromptuInterface;
 using Newtonsoft.Json;
 using reactive.pipes.Producers;
 
-namespace reactive.pipes.scheduled
+namespace reactive.pipes.Scheduler
 {
     public class ScheduledProducer : BackgroundProducer<IEnumerable<ScheduledTask>>
     {

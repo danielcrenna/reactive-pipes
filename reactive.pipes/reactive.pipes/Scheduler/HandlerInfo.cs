@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace reactive.pipes.scheduled
+namespace reactive.pipes.Scheduler
 {
     public class HandlerInfo : IEquatable<HandlerInfo>
     {
