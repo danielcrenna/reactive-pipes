@@ -259,7 +259,23 @@ namespace reactive.pipes.Scheduler
                 Type type = _settings.TypeResolver.FindTypeByName(typeName);
                 if (type != null)
                 {
-                    var instance = Activator.CreateInstance(type);
+                    object instance;
+                    if (handlerInfo.Instance != null)
+                    {
+                        try
+                        {
+                            instance = JsonConvert.DeserializeObject(handlerInfo.Instance, type);
+                        }
+                        catch (Exception)
+                        {
+                            instance = null;
+                        }
+                    }
+                    else
+                    {
+                        instance = Activator.CreateInstance(type);
+                    }
+
                     if (instance != null)
                     {
                         handler = TryWrapHook<Handler>(instance);
