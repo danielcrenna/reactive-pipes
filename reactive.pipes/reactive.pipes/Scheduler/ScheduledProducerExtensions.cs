@@ -5,17 +5,19 @@ namespace reactive.pipes.Scheduler
 {
     public static class ScheduledProducerExtensions
     {
-        public static bool ScheduleAsync<T>(this ScheduledProducer producer, DateTimeOffset? runAt = null, int? priority = null, Action<ScheduledTask> options = null)
+        public static bool ScheduleAsync<T>(this ScheduledProducer producer, DateTimeOffset? runAt = null, int? priority = null, Action<ScheduledTask> options = null, Action<T> configure = null) where T : class, new()
         {
-            return QueueForExecution<T>(producer, runAt ?? DateTimeOffset.UtcNow, priority ?? producer.Settings.Priority, options);
-        }
+            T instance = null;
+            if (configure != null)
+            {
+                instance = (T)Activator.CreateInstance(typeof(T));
+                configure(instance);
+            }
 
-        public static bool ScheduleAsync<T>(this ScheduledProducer producer, T task, DateTimeOffset? runAt = null, int? priority = null, Action<ScheduledTask> options = null)
-        {
-            return QueueForExecution<T>(producer, runAt ?? DateTimeOffset.UtcNow, priority ?? producer.Settings.Priority, options, task);
+            return QueueForExecution<T>(producer, runAt ?? DateTimeOffset.UtcNow, priority ?? producer.Settings.Priority, options, instance);
         }
         
-        private static bool QueueForExecution<T>(this ScheduledProducer producer, DateTimeOffset runAt, int priority, Action<ScheduledTask> options, object instance = null)
+        private static bool QueueForExecution<T>(this ScheduledProducer producer, DateTimeOffset runAt, int priority, Action<ScheduledTask> options, object instance)
         {
             var task = NewTask<T>(runAt, priority, producer.Settings, instance);
             options?.Invoke(task);

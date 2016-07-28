@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Management.Instrumentation;
 using System.Threading;
 using System.Threading.Tasks;
 using Dates;
@@ -25,9 +26,9 @@ namespace reactive.tests.Scheduled
         {
             ScheduledProducerSettings settings = new ScheduledProducerSettings { DelayTasks = false };
             ScheduledProducer scheduler = new ScheduledProducer(settings);
-            scheduler.ScheduleAsync<CountingHandler>();
+            scheduler.ScheduleAsync<StaticCountingHandler>();
 
-            Assert.True(CountingHandler.Count == 1, "handler should have queued immediately since tasks are not delayed");
+            Assert.True(StaticCountingHandler.Count == 1, "handler should have queued immediately since tasks are not delayed");
         }
 
         [Fact]
@@ -40,13 +41,16 @@ namespace reactive.tests.Scheduled
             };
 
             ScheduledProducer scheduler = new ScheduledProducer(settings);
-            scheduler.ScheduleAsync<CountingHandler>(DateTimeOffset.UtcNow + TimeSpan.FromMilliseconds(300));
+            scheduler.ScheduleAsync<StaticCountingHandler>(DateTimeOffset.UtcNow + TimeSpan.FromMilliseconds(300), configure: h =>
+            {
+                h.SomeOption = "SomeValue";
+            });
             scheduler.Start(); // <-- starts background thread to poll for tasks
 
-            Assert.True(CountingHandler.Count == 0, "handler should not have queued immediately since tasks are delayed");
+            Assert.True(StaticCountingHandler.Count == 0, "handler should not have queued immediately since tasks are delayed");
             Thread.Sleep(1000); // <-- should poll for tasks about 10 times
-            Assert.True(CountingHandler.Count > 0, "handler should have executed since we scheduled it in the future");
-            Assert.True(CountingHandler.Count == 1, "handler should have only executed once since it does not repeat");
+            Assert.True(StaticCountingHandler.Count > 0, "handler should have executed since we scheduled it in the future");
+            Assert.True(StaticCountingHandler.Count == 1, "handler should have only executed once since it does not repeat");
         }
 
         [Fact]
@@ -65,13 +69,13 @@ namespace reactive.tests.Scheduled
                 };
 
                 ScheduledProducer scheduler = new ScheduledProducer(settings);
-                scheduler.ScheduleAsync<CountingHandler>(DateTimeOffset.UtcNow, options: o => o.RepeatIndefinitely(CronTemplates.Minutely()));
+                scheduler.ScheduleAsync<StaticCountingHandler>(DateTimeOffset.UtcNow, options: o => o.RepeatIndefinitely(CronTemplates.Minutely()));
                 scheduler.Start(); // <-- starts background thread to poll for tasks
 
-                Assert.True(CountingHandler.Count == 0, "handler should not have queued immediately since tasks are delayed");
+                Assert.True(StaticCountingHandler.Count == 0, "handler should not have queued immediately since tasks are delayed");
                 Thread.Sleep(TimeSpan.FromMinutes(1.1)); // <-- enough time for the next occurrence
-                Assert.True(CountingHandler.Count > 0, "handler should have executed since we scheduled it in the future");
-                Assert.Equal(2, CountingHandler.Count);
+                Assert.True(StaticCountingHandler.Count > 0, "handler should have executed since we scheduled it in the future");
+                Assert.Equal(2, StaticCountingHandler.Count);
             }   
         }
     }

@@ -44,9 +44,9 @@ namespace reactive.pipes.Scheduler
             return $"{atMinute} {atHour} {onDay} * *";
         }
 
-        private static string ValueOrStar(int minutes)
+        private static string ValueOrStar(int value)
         {
-            return minutes == 0 ? "*" : "*/" + minutes;
+            return value == 0 ? "*" : "*/" + value;
         }
     }
 }

@@ -94,7 +94,7 @@
     <Compile Include="Fakes\StringEvent.cs" />
     <Compile Include="Fakes\StringEventHandler.cs" />
     <Compile Include="Scheduled\CronTemplatesTests.cs" />
-    <Compile Include="Scheduled\Fakes\CountingHandler.cs" />
+    <Compile Include="Scheduled\Fakes\StaticCountingHandler.cs" />
     <Compile Include="Scheduled\InMemoryScheduleStoreTests.cs" />
     <Compile Include="Scheduled\Migrations\Migrations.cs" />
     <Compile Include="Scheduled\Migrations\MigrationHelper.cs" />

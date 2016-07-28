@@ -16,7 +16,7 @@ namespace reactive.tests.Scheduled
             Assert.Equal(n, diff.Minutes);
         }
 
-        [Theory, InlineData(1), InlineData(5)]
+        [Theory, InlineData(1)]
         public void Every_n_hours(int n)
         {
             var cron = CronTemplates.Hourly(n);
