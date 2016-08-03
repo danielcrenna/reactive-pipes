@@ -49,7 +49,7 @@ namespace reactive.pipes.Scheduler
             {
                 db.Open();
 
-                var t = db.BeginTransaction(IsolationLevel.Serializable);
+                var t = InTransaction(db);
 
                 const string sql = @"
 DELETE FROM ScheduledTask WHERE Id = @Id; 

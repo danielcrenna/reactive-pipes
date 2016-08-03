@@ -6,8 +6,8 @@ namespace reactive.pipes.Scheduler
     {
         void Save(ScheduledTask task);
         void Delete(ScheduledTask task);
+        IList<ScheduledTask> GetAll();
         IList<ScheduledTask> GetAndLockNextAvailable(int readAhead);
         ScheduledTask GetById(int id);
-        IList<ScheduledTask> GetAll();
     }
 }

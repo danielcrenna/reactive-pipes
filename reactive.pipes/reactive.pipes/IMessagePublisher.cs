@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 namespace reactive.pipes
 {
     /// <summary>
-    /// An event publisher allows eventing to some consumers.
+    /// An message publisher allows eventing to some consumers.
     /// </summary>
     public interface IMessagePublisher : IDisposable
     {

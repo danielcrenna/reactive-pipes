@@ -24,14 +24,14 @@ namespace reactive.pipes.Scheduler
         void Success();
     }
 
-    public interface Error : Method
-    {
-        void Error(Exception error);
-    }
-
     public interface Failure : Method
     {
         void Failure();
+    }
+
+    public interface Error : Method
+    {
+        void Error(Exception error);
     }
 
     public interface Halt : Method
