@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NCrontab;
+using Newtonsoft.Json;
 
 namespace reactive.pipes.Scheduler
 {
@@ -30,11 +31,12 @@ namespace reactive.pipes.Scheduler
         public DateTimeOffset Start { get; set; }
         public DateTimeOffset? End { get; set; }
         public bool ContinueOnSuccess { get; set; } = true;
-        public bool ContinueOnFailure { get; set; }
-        public bool ContinueOnError { get; set; }
-        public DateTimeOffset? NextOccurrence => GetNextOccurence();
-        public DateTimeOffset? LastOccurrence => GetLastOccurrence();
-        public IEnumerable<DateTimeOffset> AllOccurrences => GetAllOccurrences();
+        public bool ContinueOnFailure { get; set; } = true;
+        public bool ContinueOnError { get; set; } = true;
+
+        [JsonIgnore] public DateTimeOffset? NextOccurrence => GetNextOccurence();
+        [JsonIgnore] public DateTimeOffset? LastOccurrence => GetLastOccurrence();
+        [JsonIgnore] public IEnumerable<DateTimeOffset> AllOccurrences => GetAllOccurrences();
 
         private IEnumerable<DateTimeOffset> GetAllOccurrences()
         {

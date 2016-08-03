@@ -14,6 +14,8 @@ namespace reactive.pipes.Scheduler
 {
     public class ScheduledProducer : BackgroundProducer<IEnumerable<ScheduledTask>>
     {
+        private const string NoHandlerState = "{}";
+
         private static readonly IDictionary<HandlerInfo, Handler> HandlerCache = new ConcurrentDictionary<HandlerInfo, Handler>();
         private static readonly IDictionary<Type, HandlerMethods> MethodCache = new ConcurrentDictionary<Type, HandlerMethods>();
 
@@ -198,6 +200,41 @@ namespace reactive.pipes.Scheduler
                 task.SucceededAt = now;
             }
 
+            // repeat if we reached a final state on our task
+            if ((task.SucceededAt.HasValue || task.FailedAt.HasValue) && task.NextOccurrence != null)
+            {
+                var shouldRepeat = (success && task.ContinueOnSuccess) ||
+                                   (!success && task.ContinueOnFailure) ||
+                                   (exception != null && task.ContinueOnError);
+
+                if (shouldRepeat)
+                {
+                    task.Start = task.RunAt;
+                    DateTimeOffset? nextOccurrence = task.NextOccurrence;
+
+                    var clone = new ScheduledTask
+                    {
+                        Priority = task.Priority,
+                        Handler = task.Handler,
+                        DeleteOnSuccess = task.DeleteOnSuccess,
+                        DeleteOnFailure = task.DeleteOnFailure,
+                        DeleteOnError = task.DeleteOnError,
+                        Expression = task.Expression,
+                        Start = task.Start,
+                        End = task.End,
+                        ContinueOnSuccess = task.ContinueOnSuccess,
+                        ContinueOnFailure = task.ContinueOnFailure,
+                        ContinueOnError = task.ContinueOnError,
+                        RunAt = nextOccurrence.GetValueOrDefault(),
+                        MaximumAttempts = task.MaximumAttempts,
+                        MaximumRuntime = task.MaximumRuntime
+                    };
+
+                    _settings.Store.Save(clone);
+                }
+            }
+
+
             if (!deleted)
             {
                 // unlock for other workers
@@ -205,39 +242,6 @@ namespace reactive.pipes.Scheduler
                 task.LockedBy = null;
 
                 _settings.Store.Save(task);
-
-                if (task.NextOccurrence != null)
-                {
-                    var shouldRepeat = (success && task.ContinueOnSuccess) ||
-                                       (!success && task.ContinueOnFailure) ||
-                                       (exception != null && task.ContinueOnError);
-
-                    if (shouldRepeat)
-                    {
-                        task.Start = task.RunAt;
-                        DateTimeOffset? nextOccurrence = task.NextOccurrence;
-
-                        var clone = new ScheduledTask
-                        {
-                            Priority = task.Priority,
-                            Handler = task.Handler,
-                            DeleteOnSuccess = task.DeleteOnSuccess,
-                            DeleteOnFailure = task.DeleteOnFailure,
-                            DeleteOnError = task.DeleteOnError,
-                            Expression = task.Expression,
-                            Start = task.Start,
-                            End = task.End,
-                            ContinueOnSuccess = task.ContinueOnSuccess,
-                            ContinueOnFailure = task.ContinueOnFailure,
-                            ContinueOnError = task.ContinueOnError,
-                            RunAt = nextOccurrence.GetValueOrDefault(),
-                            MaximumAttempts = task.MaximumAttempts,
-                            MaximumRuntime = task.MaximumRuntime
-                        };
-
-                        _settings.Store.Save(clone);
-                    }
-                }
             }
         }
 
@@ -251,39 +255,7 @@ namespace reactive.pipes.Scheduler
             var success = false;
 
             // Acquire the handler:
-            HandlerInfo handlerInfo = JsonConvert.DeserializeObject<HandlerInfo>(task.Handler);
-            Handler handler;
-            if (!HandlerCache.TryGetValue(handlerInfo, out handler))
-            {
-                string typeName = $"{handlerInfo.Namespace}.{handlerInfo.Entrypoint}";
-                Type type = _settings.TypeResolver.FindTypeByName(typeName);
-                if (type != null)
-                {
-                    object instance;
-                    if (handlerInfo.Instance != null)
-                    {
-                        try
-                        {
-                            instance = JsonConvert.DeserializeObject(handlerInfo.Instance, type);
-                        }
-                        catch (Exception)
-                        {
-                            instance = null;
-                        }
-                    }
-                    else
-                    {
-                        instance = Activator.CreateInstance(type);
-                    }
-
-                    if (instance != null)
-                    {
-                        handler = TryWrapHook<Handler>(instance);
-                        if (handler != null)
-                            HandlerCache.Add(handlerInfo, handler);
-                    }
-                }
-            }
+            Handler handler = CreateOrGetHandler(task);
 
             if (handler == null)
             {
@@ -335,6 +307,44 @@ namespace reactive.pipes.Scheduler
             }
 
             return success;
+        }
+
+        private Handler CreateOrGetHandler(ScheduledTask task)
+        {
+            HandlerInfo handlerInfo = JsonConvert.DeserializeObject<HandlerInfo>(task.Handler);
+            Handler handler;
+            if (!HandlerCache.TryGetValue(handlerInfo, out handler))
+            {
+                string typeName = $"{handlerInfo.Namespace}.{handlerInfo.Entrypoint}";
+                Type type = _settings.TypeResolver.FindTypeByName(typeName);
+                if (type != null)
+                {
+                    object instance;
+                    if (!string.IsNullOrWhiteSpace(handlerInfo.Instance) && !handlerInfo.Instance.Equals(NoHandlerState))
+                    {
+                        try
+                        {
+                            instance = JsonConvert.DeserializeObject(handlerInfo.Instance, type);
+                        }
+                        catch (Exception)
+                        {
+                            instance = null;
+                        }
+                    }
+                    else
+                    {
+                        instance = Activator.CreateInstance(type);
+                    }
+
+                    if (instance != null)
+                    {
+                        handler = TryWrapHook<Handler>(instance);
+                        if (handler != null)
+                            HandlerCache.Add(handlerInfo, handler);
+                    }
+                }
+            }
+            return handler;
         }
 
         private static HandlerMethods CacheOrCreateMethods(Handler handler)
