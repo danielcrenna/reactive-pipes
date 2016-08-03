@@ -52,8 +52,7 @@ namespace reactive.pipes.Scheduler
                 var t = InTransaction(db);
 
                 const string sql = @"
-DELETE FROM ScheduledTask WHERE Id = @Id; 
-DELETE FROM RepeatInfo WHERE ScheduledTaskId = @Id;
+DELETE FROM ScheduledTask WHERE Id = @Id;
 ";
                 db.Execute(sql, task, t);
 

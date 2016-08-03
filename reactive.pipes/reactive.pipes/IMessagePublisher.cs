@@ -8,7 +8,7 @@ namespace reactive.pipes
     /// </summary>
     public interface IMessagePublisher : IDisposable
     {
-        Task<bool> PublishAsync(object @event);
-        bool Publish(object @event);
+        Task<bool> PublishAsync(object message);
+        bool Publish(object message);
     }
 }

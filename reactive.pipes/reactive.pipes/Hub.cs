@@ -30,21 +30,21 @@ namespace reactive.pipes
             _typeResolver = assemblyResolver ?? new DefaultTypeResolver();
         }
 
-        public async Task<bool> PublishAsync(object @event)
+        public async Task<bool> PublishAsync(object message)
         {
-            return await Task.Run(() => Publish(@event));
+            return await Task.Run(() => Publish(message));
         }
 
-        public bool Publish(object @event)
+        public bool Publish(object message)
         {
-            Type type = @event.GetType();
+            Type type = message.GetType();
             Func<object, bool> dispatcher = _byTypeDispatch[type] as Func<object, bool>;
             if (dispatcher == null)
             {
                 dispatcher = BuildByTypeDispatcher(type);
                 _byTypeDispatch[type] = dispatcher;
             }
-            return dispatcher(@event);
+            return dispatcher(message);
         }
 
         private Func<object, bool> BuildByTypeDispatcher(Type superType)

@@ -20,7 +20,7 @@ namespace reactive.pipes.Scheduler
         public IScheduleStore Store { get; set; }
 
         /// <summary>
-        /// The time to delay before checking for available tasks in the backing store.
+        /// The time to delay before checking for available tasks in the backing store. Default is 60 seconds.
         /// </summary>
         public TimeSpan SleepInterval { get; set; }
 
