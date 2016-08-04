@@ -45,6 +45,15 @@ namespace reactive.tests.Scheduled.Migrations
                 .WithColumn("ContinueOnError").AsBoolean().NotNullable()
                 .WithColumn("End").AsDateTimeOffset().Nullable()
                 ;
+            Create.Table("ScheduledTask_Tag")
+                .WithColumn("Id").AsInt32().PrimaryKey().Identity().Unique()    // CLUSTERED INDEX + UNIQUE (Faster Lookups)
+                .WithColumn("Name").AsString().NotNullable().Indexed()          // ORDER BY ScheduledTask_Tag.Name ASC
+                ;
+            Create.Table("ScheduledTask_Tags")
+                .WithColumn("Id").AsInt32().PrimaryKey().Identity().Unique()    // CLUSTERED INDEX + UNIQUE (Faster Lookups)
+                .WithColumn("ScheduledTaskId").AsInt32().ForeignKey("ScheduledTask", "Id").NotNullable().Indexed()
+                .WithColumn("TagId").AsInt32().ForeignKey("ScheduledTask_Tag", "Id").NotNullable().Indexed()
+                ;
         }
 
         public override void Down()

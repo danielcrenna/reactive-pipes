@@ -16,6 +16,31 @@ namespace reactive.pipes.Scheduler
             _tasks = new ConcurrentDictionary<int, HashSet<ScheduledTask>>();
         }
 
+        public IList<ScheduledTask> GetByAnyTags(params string[] tags)
+        {
+            var all = GetAll();
+
+            var query = all.Where(a =>
+            {
+                return tags.Any(tag => a.Tags.Contains(tag));
+            });
+
+            return query.ToList();
+        }
+
+        public IList<ScheduledTask> GetByAllTags(params string[] tags)
+        {
+            var all = GetAll();
+
+            var query = all.Where(a =>
+            {
+                return tags.All(tag => a.Tags.Contains(tag));
+            });
+
+            return query.ToList();
+
+        }
+
         public void Save(ScheduledTask task)
         {
             HashSet<ScheduledTask> tasks;

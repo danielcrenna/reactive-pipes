@@ -5,8 +5,11 @@ namespace reactive.pipes.Scheduler
     public interface IScheduleStore
     {
         IList<ScheduledTask> GetAll();
-        IList<ScheduledTask> GetHangingTasks();
+        IList<ScheduledTask> GetByAllTags(params string[] tags);
+        IList<ScheduledTask> GetByAnyTags(params string[] tags);
         ScheduledTask GetById(int id);
+
+        IList<ScheduledTask> GetHangingTasks();
 
         void Save(ScheduledTask task);
         void Delete(ScheduledTask task);

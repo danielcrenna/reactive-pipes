@@ -213,7 +213,7 @@ namespace reactive.pipes.Scheduler
 
             if (persist)
             {
-                SaveTask(task, success, exception);
+                UpdateTask(task, success, exception);
             }
 
             _cancel.Token.ThrowIfCancellationRequested();
@@ -232,7 +232,7 @@ namespace reactive.pipes.Scheduler
             return success;
         }
 
-        private void SaveTask(ScheduledTask task, bool success, Exception exception)
+        private void UpdateTask(ScheduledTask task, bool success, Exception exception)
         {
             bool deleted = false;
 
@@ -286,7 +286,8 @@ namespace reactive.pipes.Scheduler
                         ContinueOnError = task.ContinueOnError,
                         RunAt = nextOccurrence.GetValueOrDefault(),
                         MaximumAttempts = task.MaximumAttempts,
-                        MaximumRuntime = task.MaximumRuntime
+                        MaximumRuntime = task.MaximumRuntime,
+                        Tags = task.Tags
                     };
 
                     _settings.Store.Save(clone);

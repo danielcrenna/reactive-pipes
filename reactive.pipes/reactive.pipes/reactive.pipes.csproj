@@ -87,6 +87,7 @@
     <Compile Include="Consumers\FileConsumer.cs" />
     <Compile Include="Consumers\ProtocolConsumer.cs" />
     <Compile Include="Extensions\BlockingCollectionExtensions.cs" />
+    <Compile Include="Extensions\CollectionExtensions.cs" />
     <Compile Include="Extensions\ObservableExtensions.cs" />
     <Compile Include="Extensions\TaskExtensions.cs" />
     <Compile Include="Hub.cs" />

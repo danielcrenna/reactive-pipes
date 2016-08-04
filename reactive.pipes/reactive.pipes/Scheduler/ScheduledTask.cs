@@ -25,6 +25,17 @@ namespace reactive.pipes.Scheduler
         public DateTimeOffset? LockedAt { get; set; }
         public string LockedBy { get; set; }
 
+        public ScheduledTask()
+        {
+            Tags = new HashSet<string>();
+        }
+
+        #region Tagging
+
+        public HashSet<string> Tags { get; set; }
+
+        #endregion
+
         #region Scheduling
 
         public string Expression { get; set; }
