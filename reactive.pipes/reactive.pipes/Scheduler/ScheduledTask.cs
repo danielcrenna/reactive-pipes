@@ -27,12 +27,12 @@ namespace reactive.pipes.Scheduler
 
         public ScheduledTask()
         {
-            Tags = new HashSet<string>();
+            Tags = new List<string>();
         }
 
         #region Tagging
 
-        public HashSet<string> Tags { get; set; }
+        public List<string> Tags { get; set; }
 
         #endregion
 

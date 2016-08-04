@@ -239,25 +239,36 @@ ORDER BY
         {
             // None locked, failed or succeeded, must be due, ordered by due time then priority
             const string sql = @"
-SELECT TOP {0} ScheduledTask.*, ScheduledTask_Tag.Name FROM ScheduledTask
+SELECT TOP {0} st.* FROM ScheduledTask st
+WHERE
+    st.[LockedAt] IS NULL 
+AND
+    st.[FailedAt] IS NULL 
+AND 
+    st.[SucceededAt] IS NULL
+AND 
+    (st.[RunAt] <= GETUTCDATE())
+ORDER BY 
+    st.[RunAt], 
+    st.[Priority] ASC
+";
+            var matchSql = string.Format(sql, readAhead);
+
+            var matches = db.Query<ScheduledTask>(matchSql, transaction: t).ToList();
+
+            if (!matches.Any())
+                return matches;
+
+            const string fetchSql = @"
+SELECT ScheduledTask.*, ScheduledTask_Tag.Name FROM ScheduledTask
 LEFT JOIN ScheduledTask_Tags ON ScheduledTask_Tags.ScheduledTaskId = ScheduledTask.Id
 LEFT JOIN ScheduledTask_Tag ON ScheduledTask_Tags.TagId = ScheduledTask_Tag.Id
-WHERE
-    ScheduledTask.[LockedAt] IS NULL 
-AND
-    ScheduledTask.[FailedAt] IS NULL 
-AND 
-    ScheduledTask.[SucceededAt] IS NULL
-AND 
-    (ScheduledTask.[RunAt] <= GETUTCDATE())
-ORDER BY 
-    ScheduledTask.[RunAt], 
-    ScheduledTask.[Priority] ASC, 
-    ScheduledTask_Tag.[Name] ASC
+WHERE ScheduledTask.Id IN @Ids
+ORDER BY ScheduledTask_Tag.Name ASC
 ";
-            var query = string.Format(sql, readAhead);
+            var ids = matches.Select(m => m.Id);
 
-            return QueryWithSplitOnTags(db, t, query);
+            return QueryWithSplitOnTags(db, t, fetchSql, new { Ids = ids });
         }
 
         private static ScheduledTask GetByIdWithTags(int id, IDbConnection db, IDbTransaction t)
@@ -273,7 +284,8 @@ ORDER BY ScheduledTask_Tag.Name ASC
             db.Query<ScheduledTask, string, ScheduledTask>(sql, (s, tag) =>
             {
                 task = task ?? s;
-                task.Tags.Add(tag);
+                if(tag != null)
+                    task.Tags.Add(tag);
                 return task;
             }, new { Id = id }, splitOn: "Name", transaction: t);
 
@@ -359,7 +371,8 @@ ORDER BY ScheduledTask_Tag.Name ASC
                 ScheduledTask task;
                 if (!lookup.TryGetValue(s.Id, out task))
                     lookup.Add(s.Id, task = s);
-                task.Tags.Add(tag);
+                if(tag != null)
+                    task.Tags.Add(tag);
                 return task;
             }, data, splitOn: "Name", transaction: t);
 
@@ -367,11 +380,17 @@ ORDER BY ScheduledTask_Tag.Name ASC
             return result;
         }
 
-        private static readonly HashSet<string> NoTags = new HashSet<string>();
+        private static readonly List<string> NoTags = new List<string>();
 
         private static void UpdateTagMapping(ScheduledTask task, IDbConnection db, IDbTransaction t)
         {
             var source = task.Tags ?? NoTags;
+
+            if (source == NoTags || source.Count == 0)
+            {
+                db.Execute("DELETE FROM ScheduledTask_Tags WHERE ScheduledTaskId = @Id", task, transaction: t);
+                return;
+            }
 
             // normalize for storage
             var normalized = source.Select(st => st.Trim().Replace(" ", "-").Replace("'", "\""));

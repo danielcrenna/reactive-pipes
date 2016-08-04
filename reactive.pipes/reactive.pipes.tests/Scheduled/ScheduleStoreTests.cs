@@ -54,6 +54,11 @@ namespace reactive.tests.Scheduled
             ScheduledTask byId = Store.GetById(1);
             Assert.NotNull(byId);
             Assert.Equal(3, byId.Tags.Count);
+            
+            // GetAndLockNextAvailable:
+            IList<ScheduledTask> locked = Store.GetAndLockNextAvailable(1);
+            Assert.Equal(1, locked.Count);
+            Assert.Equal(3, locked[0].Tags.Count);
         }
 
         [Fact]
@@ -115,6 +120,14 @@ namespace reactive.tests.Scheduled
             ScheduledTask byId = Store.GetById(1);
             Assert.NotNull(byId);
             Assert.Equal(2, byId.Tags.Count);
+
+            created.Tags.Clear();
+            Store.Save(created);
+
+            // GetById:
+            byId = Store.GetById(1);
+            Assert.NotNull(byId);
+            Assert.Equal(0, byId.Tags.Count);
         }
 
         private static ScheduledTask CreateNewTask()
