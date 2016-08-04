@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
-using System.Security.Principal;
 using Dapper;
 
 namespace reactive.pipes.Scheduler
@@ -114,6 +113,26 @@ WHERE t.Id = @Id
             }
         }
 
+        public IList<ScheduledTask> GetHangingTasks()
+        {
+            using (var db = new SqlConnection(_connectionString))
+            {
+                db.Open();
+
+                var t = InTransaction(db);
+
+                const string @get = @"
+SELECT * 
+    FROM ScheduledTask t
+WHERE 
+    t.LockedAt IS NOT NULL
+";
+                var locked = db.Query<ScheduledTask>(get, transaction: t);
+
+                return locked.Where(st => st.RunningOvertime).ToList();
+            }
+        }
+
         public IList<ScheduledTask> GetAll()
         {
             using (var db = new SqlConnection(_connectionString))
@@ -185,8 +204,7 @@ WHERE Id IN
     @Ids
 ";
             var now = DateTime.Now;
-            var identity = WindowsIdentity.GetCurrent();
-            var user = identity == null ? Environment.UserName : identity.Name;
+            var user = LockedIdentity.Get();
 
             db.Execute(sql, new
             {

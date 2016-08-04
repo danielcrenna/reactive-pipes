@@ -117,11 +117,13 @@
     <Compile Include="Schedulers\ThreadPerTaskScheduler.cs" />
     <Compile Include="Schedulers\WorkStealingTaskScheduler.cs" />
     <Compile Include="Scheduler\CronTemplates.cs" />
+    <Compile Include="Scheduler\ErrorStrings.cs" />
     <Compile Include="Scheduler\HandlerInfo.cs" />
     <Compile Include="Scheduler\HandlerMethods.cs" />
     <Compile Include="Scheduler\InMemoryScheduleStore.cs" />
     <Compile Include="Scheduler\Interfaces.cs" />
     <Compile Include="Scheduler\IScheduleStore.cs" />
+    <Compile Include="Scheduler\LockedIdentity.cs" />
     <Compile Include="Scheduler\ScheduledProducer.cs" />
     <Compile Include="Scheduler\ScheduledProducerExtensions.cs" />
     <Compile Include="Scheduler\ScheduledProducerSettings.cs" />

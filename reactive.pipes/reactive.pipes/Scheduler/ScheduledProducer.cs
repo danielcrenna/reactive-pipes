@@ -12,7 +12,7 @@ using reactive.pipes.Producers;
 
 namespace reactive.pipes.Scheduler
 {
-    public class ScheduledProducer : BackgroundProducer<IEnumerable<ScheduledTask>>
+    public class ScheduledProducer : IProduce<IEnumerable<ScheduledTask>>, IDisposable
     {
         private const string NoHandlerState = "{}";
 
@@ -27,6 +27,9 @@ namespace reactive.pipes.Scheduler
         private CancellationTokenSource _cancel;
         private readonly int _threads;
         private readonly ScheduledProducerSettings _settings;
+
+        private BackgroundThreadProducer<IEnumerable<ScheduledTask>> Background { get; set; }
+        private BackgroundThreadProducer<IEnumerable<ScheduledTask>> Maintenance { get; set; }
 
         public ScheduledProducerSettings Settings
         {
@@ -64,9 +67,22 @@ namespace reactive.pipes.Scheduler
             _cancel = new CancellationTokenSource();
             _threads = _settings.Concurrency;
 
+            // polling thread
+            Background = new BackgroundThreadProducer<IEnumerable<ScheduledTask>>();
             Background.Attach(WithPendingTasks);
             Background.AttachBacklog(WithOverflowTasks);
             Background.AttachUndeliverable(WithFailedTasks);
+
+            // maintenance thread
+            Maintenance = new BackgroundThreadProducer<IEnumerable<ScheduledTask>>();
+            Maintenance.Attach(WithHangingTasks);
+            Maintenance.AttachBacklog(WithHangingTasks);
+            Maintenance.AttachUndeliverable(WithHangingTasks);
+        }
+
+        public virtual void Attach(IConsume<IEnumerable<ScheduledTask>> consumer)
+        {
+            Background.Attach(consumer);
         }
 
         private IEnumerable<ScheduledTask> SeedTasksFromQueue()
@@ -74,17 +90,24 @@ namespace reactive.pipes.Scheduler
             return _settings.Store.GetAndLockNextAvailable(_settings.ReadAhead);
         }
 
-        public override void Start(bool immediate = false)
+        private IEnumerable<ScheduledTask> HangingTasks()
+        {
+            return _settings.Store.GetHangingTasks();
+        }
+
+        public void Start(bool immediate = false)
         {
             if (_scheduler == null)
                 _scheduler = new QueuedTaskScheduler(_threads);
-            
-            Background.Produce(SeedTasksFromQueue, _settings.SleepInterval);
 
-            base.Start(immediate);
+            Background.Produce(SeedTasksFromQueue, _settings.SleepInterval);
+            Background.Start(immediate);
+
+            Maintenance.Produce(HangingTasks, TimeSpan.FromMinutes(5));
+            Maintenance.Start(immediate);
         }
 
-        public override void Stop(bool immediate = false)
+        public void Stop(bool immediate = false)
         {
             Parallel.ForEach(_pending.Where(entry => entry.Value.OnHalt != null), e =>
             {
@@ -99,7 +122,8 @@ namespace reactive.pipes.Scheduler
                 _scheduler = null;
             }
 
-            base.Stop(immediate);
+            Background.Stop(immediate);
+            Maintenance.Stop(immediate);
         }
         
         private void WithFailedTasks(IEnumerable<ScheduledTask> scheduledTasks)
@@ -114,11 +138,42 @@ namespace reactive.pipes.Scheduler
             WithPendingTasks(scheduledTasks);
         }
 
+        private void WithHangingTasks(IEnumerable<ScheduledTask> scheduledTasks)
+        {
+            var now = DateTimeOffset.UtcNow;
+            
+            foreach (var task in scheduledTasks)
+            {
+                // bump up attempts (wouldn't have reached here normally since we never unlocked)
+                task.Attempts++;
+
+                // unlock hanging task (record failure)
+                task.LockedAt = null;
+                task.LockedBy = null;
+                task.LastError = ErrorStrings.ExceededRuntime;
+
+                if (JobWillFail(task))
+                {
+                    if (task.DeleteOnFailure.HasValue && task.DeleteOnFailure.Value)
+                        _settings.Store.Delete(task);
+                    else
+                        task.FailedAt = now;
+                }
+                else
+                {
+                    // compute next run time (from the last run, not from now, since we hung)
+                    task.RunAt = task.RunAt + _settings.IntervalFunction(task.Attempts);
+                }
+
+                _settings.Store.Save(task);
+            }
+        }
+        
         private void WithPendingTasks(IEnumerable<ScheduledTask> scheduledTasks)
         {
             // assign tasks to scheduler slots
-            var runtimes = new Dictionary<Task, TimeSpan>();
             var pendingTasks = new Dictionary<Task, CancellationTokenSource>();
+            var subjects = new Dictionary<Task, ScheduledTask>();
 
             foreach (ScheduledTask scheduledTask in scheduledTasks)
             {
@@ -129,16 +184,20 @@ namespace reactive.pipes.Scheduler
                 {
                     AttemptTask(scheduledTask);
                 }, cancel.Token);
+
                 pendingTasks.Add(task, cancel);
-                runtimes.Add(task, scheduledTask.MaximumRuntime.GetValueOrDefault());
+                subjects.Add(task, scheduledTask);
             }
 
             // wait for execution of cancellable tasks
             Parallel.ForEach(pendingTasks, performer =>
             {
-                if (!Task.WaitAll(new[] { performer.Key }, runtimes[performer.Key]))
+                ScheduledTask scheduledTask = subjects[performer.Key];
+
+                if (!Task.WaitAll(new[] { performer.Key }, scheduledTask.MaximumRuntime.GetValueOrDefault()))
                 {
                     performer.Value.Cancel();
+                    scheduledTask.LastError = ErrorStrings.ExceededRuntime;
                 }
             });
         }
@@ -150,24 +209,25 @@ namespace reactive.pipes.Scheduler
 
             Exception exception;
 
-            var success = AttemptCycle(task, out exception);
+            bool success = AttemptCycle(task, out exception);
 
             if (persist)
+            {
                 SaveTask(task, success, exception);
+            }
 
             _cancel.Token.ThrowIfCancellationRequested();
 
             return success;
         }
 
-        private bool AttemptCycle(ScheduledTask job, out Exception exception)
+        private bool AttemptCycle(ScheduledTask task, out Exception exception)
         {
-            job.Attempts++;
-            var success = Perform(job, out exception);
+            task.Attempts++;
+            bool success = Perform(task, out exception);
             if (!success)
             {
-                var dueTime = DateTimeOffset.UtcNow + _settings.IntervalFunction(job.Attempts);
-                job.RunAt = dueTime;
+                task.RunAt = DateTimeOffset.UtcNow + _settings.IntervalFunction(task.Attempts);
             }
             return success;
         }
@@ -209,7 +269,6 @@ namespace reactive.pipes.Scheduler
 
                 if (shouldRepeat)
                 {
-                    task.Start = task.RunAt;
                     DateTimeOffset? nextOccurrence = task.NextOccurrence;
 
                     var clone = new ScheduledTask
@@ -233,7 +292,6 @@ namespace reactive.pipes.Scheduler
                     _settings.Store.Save(clone);
                 }
             }
-
 
             if (!deleted)
             {
@@ -259,7 +317,7 @@ namespace reactive.pipes.Scheduler
 
             if (handler == null)
             {
-                task.LastError = "Missing or invalid handler";
+                task.LastError = ErrorStrings.InvalidHandler;
                 exception = null;
                 return false;
             }
@@ -408,12 +466,17 @@ namespace reactive.pipes.Scheduler
             return scheduler;
         }
 
-        protected override void Dispose(bool disposing)
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected void Dispose(bool disposing)
         {
             if (!disposing)
-            {
                 return;
-            }
+
             if (_cancel != null)
             {
                 _cancel.Cancel();
@@ -423,12 +486,24 @@ namespace reactive.pipes.Scheduler
             }
             _factories.Clear();
             _schedulers.Clear();
-            if (_scheduler == null)
+
+            if (_scheduler != null)
             {
-                return;
+                _scheduler.Dispose();
+                _scheduler = null;
             }
-            _scheduler.Dispose();
-            _scheduler = null;
+            
+            if (Background != null)
+            {
+                Background.Dispose();
+                Background = null;
+            }
+
+            if (Maintenance != null)
+            {
+                Maintenance.Dispose();
+                Maintenance = null;
+            }
         }
     }
 }

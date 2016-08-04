@@ -12,12 +12,13 @@ namespace reactive.tests.Scheduled
         {
             var created = CreateNewTask();
 
+            Assert.True(created.Id == 0);
             Store.Save(created);
             Assert.False(created.Id == 0);
 
             var loaded = Store.GetById(created.Id);
             Assert.NotNull(loaded);
-            Assert.Equal(created, loaded);
+            Assert.Equal(created.Id, loaded.Id);
         }
 
         [Fact]

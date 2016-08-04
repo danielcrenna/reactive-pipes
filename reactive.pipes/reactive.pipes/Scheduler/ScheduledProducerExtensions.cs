@@ -16,6 +16,7 @@ namespace reactive.pipes.Scheduler
         public static bool ScheduleAsync<T>(this ScheduledProducer producer, DateTimeOffset? runAt = null, Action<ScheduledTask> options = null, Action<T> configure = null) where T : class, new()
         {
             T instance = null;
+
             if (configure != null)
             {
                 instance = (T)Activator.CreateInstance(typeof(T));

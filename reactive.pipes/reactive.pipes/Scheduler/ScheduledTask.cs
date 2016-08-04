@@ -34,10 +34,33 @@ namespace reactive.pipes.Scheduler
         public bool ContinueOnFailure { get; set; } = true;
         public bool ContinueOnError { get; set; } = true;
 
+        public bool RunningOvertime
+        {
+            get
+            {
+                if (!LockedAt.HasValue)
+                    return false;
+                if (!MaximumRuntime.HasValue)
+                    return false;
+
+                DateTimeOffset now = DateTimeOffset.UtcNow;
+                TimeSpan elapsed = LockedAt.Value - now;
+
+                // overtime = 125% of maximum runtime
+                long overage = (long)(MaximumRuntime.Value.Ticks / 0.25f);
+                TimeSpan overtime = MaximumRuntime.Value + new TimeSpan(overage);
+
+                if (elapsed >= overtime)
+                    return true;
+
+                return false;
+            }
+        }
+
         [JsonIgnore] public DateTimeOffset? NextOccurrence => GetNextOccurence();
         [JsonIgnore] public DateTimeOffset? LastOccurrence => GetLastOccurrence();
         [JsonIgnore] public IEnumerable<DateTimeOffset> AllOccurrences => GetAllOccurrences();
-
+        
         private IEnumerable<DateTimeOffset> GetAllOccurrences()
         {
             if (string.IsNullOrWhiteSpace(Expression))
@@ -75,7 +98,7 @@ namespace reactive.pipes.Scheduler
             if (schedule == null)
                 return null;
 
-            DateTime nextOccurrence = schedule.GetNextOccurrence(Start.DateTime.ToLocalTime());
+            DateTime nextOccurrence = schedule.GetNextOccurrence(RunAt.DateTime.ToLocalTime());
 
             return new DateTimeOffset(nextOccurrence.ToUniversalTime());
         }
@@ -86,7 +109,8 @@ namespace reactive.pipes.Scheduler
             if (schedule == null)
                 return Enumerable.Empty<DateTimeOffset>();
 
-            var occurrences = schedule.GetNextOccurrences(Start.DateTime, end.DateTime).Select(o => new DateTimeOffset(o.ToUniversalTime()));
+            IEnumerable<DateTime> nextOccurrences = schedule.GetNextOccurrences(RunAt.DateTime, end.DateTime);
+            IEnumerable<DateTimeOffset> occurrences = nextOccurrences.Select(o => new DateTimeOffset(o.ToUniversalTime()));
             return occurrences;
         }
 

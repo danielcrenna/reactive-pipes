@@ -2,7 +2,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Principal;
 
 namespace reactive.pipes.Scheduler
 {
@@ -58,8 +57,7 @@ namespace reactive.pipes.Scheduler
                 foreach (ScheduledTask scheduledTask in tasks)
                 {
                     scheduledTask.LockedAt = now;
-                    var user = WindowsIdentity.GetCurrent();
-                    scheduledTask.LockedBy = user == null ? Environment.UserName : user.Name;
+                    scheduledTask.LockedBy = LockedIdentity.Get();
                 }
             }
 
@@ -69,6 +67,11 @@ namespace reactive.pipes.Scheduler
         public ScheduledTask GetById(int id)
         {
             return _tasks.SelectMany(t => t.Value).SingleOrDefault(t => t.Id == id);
+        }
+
+        public IList<ScheduledTask> GetHangingTasks()
+        {
+            return GetAll().Where(t => t.RunningOvertime).ToList();
         }
 
         public IList<ScheduledTask> GetAll()

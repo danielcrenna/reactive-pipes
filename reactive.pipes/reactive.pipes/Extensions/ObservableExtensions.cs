@@ -100,16 +100,13 @@ namespace reactive.pipes.Extensions
                     await Task.Delay(interval.Value, cancellationToken);
 
                     if (!cancellationToken.IsCancellationRequested)
-                    {
-                        var items = @delegate(cancellationToken);
-                        observer.OnNext(items);
-                    }
+                        observer.OnNext(@delegate(cancellationToken));
+
                     cancellationToken.ThrowIfCancellationRequested();
 
                 }, cancellationToken)).Repeat();
             }
-
-
+            
             return Observable.Create<T>((observer, cancellationToken) => scheduler.Run(() =>
             {
                 if(!cancellationToken.IsCancellationRequested)

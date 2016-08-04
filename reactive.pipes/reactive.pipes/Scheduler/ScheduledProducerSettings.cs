@@ -25,6 +25,11 @@ namespace reactive.pipes.Scheduler
         public TimeSpan SleepInterval { get; set; }
 
         /// <summary>
+        /// The time to delay before checking for hanging tasks in the backing store. Default is 5 minutes.
+        /// </summary>
+        public TimeSpan CleanupInterval { get; set; }
+
+        /// <summary>
         /// The number of threads available for performing tasks; default is 0.
         /// 
         /// A value of 0 defaults to the number of logical processors.
@@ -79,6 +84,7 @@ namespace reactive.pipes.Scheduler
             TypeResolver = new DefaultTypeResolver();
             Store = new InMemoryScheduleStore();
             SleepInterval = TimeSpan.FromSeconds(60);
+            CleanupInterval = TimeSpan.FromMinutes(5);
             Concurrency = 0;
             ReadAhead = 5;
             MaximumAttempts = 25;

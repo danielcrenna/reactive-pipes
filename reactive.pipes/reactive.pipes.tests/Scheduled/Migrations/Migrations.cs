@@ -38,8 +38,7 @@ namespace reactive.tests.Scheduled.Migrations
                 .WithColumn("SucceededAt").AsDateTimeOffset().Nullable()
                 .WithColumn("LockedAt").AsDateTimeOffset().Nullable()
                 .WithColumn("LockedBy").AsString().Nullable()
-                // RepeatInfo
-                .WithColumn("Expression").AsAnsiString().NotNullable()
+                .WithColumn("Expression").AsAnsiString().Nullable()
                 .WithColumn("Start").AsDateTimeOffset().NotNullable()
                 .WithColumn("ContinueOnSuccess").AsBoolean().NotNullable()
                 .WithColumn("ContinueOnFailure").AsBoolean().NotNullable()
