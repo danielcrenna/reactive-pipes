@@ -55,7 +55,7 @@ namespace reactive.tests.Scheduled
             Assert.True(StaticCountingHandler.Count == 1, "handler should have only executed once since it does not repeat");
         }
 
-        [Fact]//(Skip = "Runs for over a minute and requires a database")]
+        [Fact(Skip = "Runs for over a minute and requires a database")]
         public void Queues_for_delayed_execution_and_continous_repeating_task()
         {
             using (var db = new SqlServerFixture())
