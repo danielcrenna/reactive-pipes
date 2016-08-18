@@ -79,8 +79,13 @@ namespace reactive.pipes.Scheduler
                 var t = InTransaction(db);
 
                 const string sql = @"
-DELETE FROM ScheduledTask WHERE Id = @Id;
+-- Primary relationship:
 DELETE FROM ScheduledTask_Tags WHERE ScheduledTaskId = @Id;
+DELETE FROM ScheduledTask WHERE Id = @Id;
+
+-- Remove any orphaned tags:
+DELETE FROM ScheduledTask_Tag
+WHERE NOT EXISTS (SELECT 1 from ScheduledTask_Tags st WHERE ScheduledTask_Tag.Id = st.TagId)
 ";
                 db.Execute(sql, task, t);
 

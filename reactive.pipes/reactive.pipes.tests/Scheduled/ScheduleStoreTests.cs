@@ -130,6 +130,18 @@ namespace reactive.tests.Scheduled
             Assert.Equal(0, byId.Tags.Count);
         }
 
+        [Fact]
+        public void Can_delete_tasks_with_tags()
+        {
+            ScheduledTask created = CreateNewTask();
+            created.Tags.Add("a");
+            created.Tags.Add("b");
+            created.Tags.Add("c");
+            Store.Save(created);
+
+            Store.Delete(created);
+        }
+
         private static ScheduledTask CreateNewTask()
         {
             var task = new ScheduledTask();
