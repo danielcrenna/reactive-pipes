@@ -11,6 +11,7 @@ namespace reactive.tests.Scheduled
         public void Occurrence_is_in_UTC()
         {
             var task = new ScheduledTask();
+            task.RunAt = DateTimeOffset.UtcNow;
             task.Expression = CronTemplates.Daily(1, 3, 30);
             DateTimeOffset? next = task.NextOccurrence;
             Assert.NotNull(next);
