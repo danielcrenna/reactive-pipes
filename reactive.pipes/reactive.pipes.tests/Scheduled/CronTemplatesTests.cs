@@ -12,7 +12,7 @@ namespace reactive.tests.Scheduled
         {
             var cron = CronTemplates.Minutely(n);
             var schedule = CrontabSchedule.Parse(cron);
-            var diff = CompareTwoCronOccurencs(schedule);
+            var diff = CompareTwoCronOccurences(schedule);
             Assert.Equal(n, diff.Minutes);
         }
 
@@ -21,7 +21,7 @@ namespace reactive.tests.Scheduled
         {
             var cron = CronTemplates.Hourly(n);
             var schedule = CrontabSchedule.Parse(cron);
-            var diff = CompareTwoCronOccurencs(schedule);
+            var diff = CompareTwoCronOccurences(schedule);
             Assert.Equal(n, diff.Hours);
         }
 
@@ -30,7 +30,7 @@ namespace reactive.tests.Scheduled
         {
             var cron = CronTemplates.Daily(n);
             var schedule = CrontabSchedule.Parse(cron);
-            var diff = CompareTwoCronOccurencs(schedule);
+            var diff = CompareTwoCronOccurences(schedule);
             Assert.Equal(n, diff.Days);
         }
 
@@ -39,7 +39,7 @@ namespace reactive.tests.Scheduled
         {
             var cron = CronTemplates.WeekDaily(n);
             var schedule = CrontabSchedule.Parse(cron);
-            var diff = CompareTwoCronOccurencs(schedule);
+            var diff = CompareTwoCronOccurences(schedule);
             Assert.Equal(7, diff.Days);
         }
 
@@ -48,7 +48,7 @@ namespace reactive.tests.Scheduled
         {
             var cron = CronTemplates.WeekDaily(onDays: new []{ n, m });
             var schedule = CrontabSchedule.Parse(cron);
-            var diff = CompareTwoCronOccurencs(schedule);
+            var diff = CompareTwoCronOccurences(schedule);
             int expected = m - n;
             Assert.Equal(expected, diff.Days);
         }
@@ -58,11 +58,11 @@ namespace reactive.tests.Scheduled
         {
             var cron = CronTemplates.Monthly();
             var schedule = CrontabSchedule.Parse(cron);
-            var diff = CompareTwoCronOccurencs(schedule);
+            var diff = CompareTwoCronOccurences(schedule);
             Assert.True(diff.Days == 30 || diff.Days == 31);
         }
 
-        private static TimeSpan CompareTwoCronOccurencs(CrontabSchedule schedule)
+        private static TimeSpan CompareTwoCronOccurences(CrontabSchedule schedule)
         {
             DateTime from = schedule.GetNextOccurrence(DateTime.Now); // <-- throw this one away to normalize
             from = schedule.GetNextOccurrence(from);

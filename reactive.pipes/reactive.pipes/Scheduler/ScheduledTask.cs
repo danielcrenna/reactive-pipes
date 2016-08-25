@@ -106,10 +106,11 @@ namespace reactive.pipes.Scheduler
         private DateTimeOffset? GetNextOccurrenceInInfiniteSeries()
         {
             CrontabSchedule schedule = TryParseCron();
+
             if (schedule == null)
                 return null;
 
-            DateTime nextOccurrence = schedule.GetNextOccurrence(RunAt.DateTime.ToLocalTime());
+            DateTime nextOccurrence = schedule.GetNextOccurrence(RunAt.DateTime.ToUniversalTime());
 
             return new DateTimeOffset(nextOccurrence.ToUniversalTime());
         }
@@ -121,7 +122,7 @@ namespace reactive.pipes.Scheduler
                 return Enumerable.Empty<DateTimeOffset>();
 
             IEnumerable<DateTime> nextOccurrences = schedule.GetNextOccurrences(RunAt.DateTime, end.DateTime);
-            IEnumerable<DateTimeOffset> occurrences = nextOccurrences.Select(o => new DateTimeOffset(o.ToUniversalTime()));
+            IEnumerable<DateTimeOffset> occurrences = nextOccurrences.Select(o => new DateTimeOffset(o));
             return occurrences;
         }
 

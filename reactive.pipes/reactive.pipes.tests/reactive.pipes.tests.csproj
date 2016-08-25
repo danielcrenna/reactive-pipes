@@ -100,6 +100,7 @@
     <Compile Include="Scheduled\Migrations\MigrationHelper.cs" />
     <Compile Include="Scheduled\Migrations\MigrationTests.cs" />
     <Compile Include="Fixtures\SqlServerFixture.cs" />
+    <Compile Include="Scheduled\OccurrenceTests.cs" />
     <Compile Include="Scheduled\ScheduledProducerTests.cs" />
     <Compile Include="Scheduled\ScheduleStoreTests.cs" />
     <Compile Include="Scheduled\SqlScheduleStoreTests.cs" />

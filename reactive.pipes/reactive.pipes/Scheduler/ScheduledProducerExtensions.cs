@@ -28,8 +28,14 @@ namespace reactive.pipes.Scheduler
         
         private static bool QueueForExecution<T>(this ScheduledProducer producer, DateTimeOffset? runAt, Action<ScheduledTask> options, object instance)
         {
-            var task = NewTask<T>(runAt, producer.Settings, instance);
+            var task = NewTask<T>(producer.Settings, instance);
+
             options?.Invoke(task);
+
+            // If we have repeat info and don't provide initial RunAt, defer to next occurrence; 
+            //    otherwise, do it now (since we are provided no other alternative)
+
+            task.RunAt = runAt ?? (task.NextOccurrence ?? DateTimeOffset.UtcNow);
 
             if (!producer.Settings.DelayTasks)
                 return producer.AttemptTask(task, false);
@@ -38,7 +44,7 @@ namespace reactive.pipes.Scheduler
             return true;
         }
 
-        private static ScheduledTask NewTask<T>(DateTimeOffset? runAt, ScheduledProducerSettings settings, object instance = null)
+        private static ScheduledTask NewTask<T>(ScheduledProducerSettings settings, object instance = null)
         {
             Type type = typeof (T);
             HandlerInfo handlerInfo = new HandlerInfo(type.Namespace, type.Name);
@@ -49,12 +55,7 @@ namespace reactive.pipes.Scheduler
             {
                 Handler = JsonConvert.SerializeObject(handlerInfo)
             };
-
-            // If we have repeat info and don't provide initial RunAt, defer to next occurrence; 
-            //    otherwise, do it now (since we are provided no other alternative)
-
-            scheduledTask.RunAt = runAt ?? (scheduledTask.NextOccurrence ?? DateTimeOffset.UtcNow);
-
+            
             settings.ProvisionTask(scheduledTask);
             return scheduledTask;
         }

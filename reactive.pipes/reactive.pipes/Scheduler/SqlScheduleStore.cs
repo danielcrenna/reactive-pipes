@@ -415,11 +415,14 @@ WHEN NOT MATCHED THEN
 
 -- sync tag mappings
 MERGE ScheduledTask_Tags
-USING (SELECT @ScheduledTaskId AS ScheduledTaskId, Id AS TagId FROM ScheduledTask_Tag WHERE Name IN @Tags) AS Pending (ScheduledTaskId, TagId) 
+USING
+    (SELECT @ScheduledTaskId AS ScheduledTaskId, Id AS TagId 
+       FROM ScheduledTask_Tag 
+      WHERE Name IN @Tags) AS Pending (ScheduledTaskId, TagId) 
 ON ScheduledTask_Tags.ScheduledTaskId = Pending.ScheduledTaskId 
-    AND ScheduledTask_Tags.TagId = Pending.TagId 
-WHEN NOT MATCHED BY SOURCE THEN
-    DELETE
+AND ScheduledTask_Tags.TagId = Pending.TagId 
+WHEN NOT MATCHED BY SOURCE AND ScheduledTask_Tags.ScheduledTaskId = @ScheduledTaskId THEN
+    DELETE 
 WHEN NOT MATCHED THEN 
     INSERT (ScheduledTaskId,TagId) VALUES (Pending.ScheduledTaskId, Pending.TagId)
 ;

@@ -100,6 +100,25 @@ namespace reactive.tests.Scheduled
         }
 
         [Fact]
+        public void Adding_tags_synchronizes_with_store()
+        {
+            ScheduledTask created = CreateNewTask();
+            created.Tags.Add("a");
+            Store.Save(created);
+
+            created.Tags.Add("b");
+            Store.Save(created);
+
+            created.Tags.Add("c");
+            Store.Save(created);
+
+            // GetAll:
+            IList<ScheduledTask> all = Store.GetAll();
+            Assert.Equal(1, all.Count);
+            Assert.Equal(3, all[0].Tags.Count);
+        }
+
+        [Fact]
         public void Removing_tags_synchronizes_with_store()
         {
             ScheduledTask created = CreateNewTask();
@@ -141,6 +160,26 @@ namespace reactive.tests.Scheduled
 
             Store.Delete(created);
         }
+
+        [Fact]
+        public void Can_save_multiple_tasks_with_tags()
+        {
+            ScheduledTask first = CreateNewTask();
+            first.Tags.Add("one");
+            Store.Save(first);
+
+            ScheduledTask second = CreateNewTask();
+            second.Tags.Add("two");
+            Store.Save(second);
+
+            var tasks = Store.GetByAllTags("one");
+            Assert.True(tasks.Count == 1);
+            Assert.True(tasks[0].Tags.Count == 1);
+
+            Store.Delete(second);
+        }
+
+
 
         private static ScheduledTask CreateNewTask()
         {
