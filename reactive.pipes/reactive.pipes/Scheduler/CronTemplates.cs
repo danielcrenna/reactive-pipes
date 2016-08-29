@@ -21,7 +21,7 @@ namespace reactive.pipes.Scheduler
 
         public static string WeekDaily(DayOfWeek onDay, int atHour = 0, int atMinute = 0)
         {
-            return $"{atMinute} {atHour} * * {(int)onDay + 1}";
+            return $"{atMinute} {atHour} * * {(int)onDay}";
         }
 
         public static string WeekDaily(int atHour = 0, int atMinute = 0, params DayOfWeek[] onDays)

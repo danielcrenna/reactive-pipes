@@ -34,7 +34,7 @@ namespace reactive.tests.Scheduled
             Assert.Equal(n, diff.Days);
         }
 
-        [Theory, InlineData(DayOfWeek.Monday)]
+        [Theory, InlineData(DayOfWeek.Sunday)]
         public void Every_nth_weekday(DayOfWeek n)
         {
             var cron = CronTemplates.WeekDaily(n);
