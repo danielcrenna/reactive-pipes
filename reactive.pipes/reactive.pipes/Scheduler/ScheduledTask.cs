@@ -110,9 +110,10 @@ namespace reactive.pipes.Scheduler
             if (schedule == null)
                 return null;
 
-            DateTime nextOccurrence = schedule.GetNextOccurrence(RunAt.DateTime.ToUniversalTime());
+            // IMPORTANT: DateTimeOffset.DateTime will produce a time with Kind == Unspecified, do not use!
+            DateTime nextOccurrence = schedule.GetNextOccurrence(RunAt.UtcDateTime);
 
-            return new DateTimeOffset(nextOccurrence.ToUniversalTime());
+            return new DateTimeOffset(nextOccurrence);
         }
 
         private IEnumerable<DateTimeOffset> GetFiniteSeriesOccurrences(DateTimeOffset end)
@@ -121,7 +122,7 @@ namespace reactive.pipes.Scheduler
             if (schedule == null)
                 return Enumerable.Empty<DateTimeOffset>();
 
-            IEnumerable<DateTime> nextOccurrences = schedule.GetNextOccurrences(RunAt.DateTime, end.DateTime);
+            IEnumerable<DateTime> nextOccurrences = schedule.GetNextOccurrences(RunAt.UtcDateTime, end.UtcDateTime);
             IEnumerable<DateTimeOffset> occurrences = nextOccurrences.Select(o => new DateTimeOffset(o));
             return occurrences;
         }
