@@ -43,7 +43,10 @@ namespace reactive.tests.Scheduled
             };
 
             ScheduledProducer scheduler = new ScheduledProducer(settings);
-            scheduler.ScheduleAsync<StaticCountingHandler>(DateTimeOffset.UtcNow + TimeSpan.FromMilliseconds(300), configure: h =>
+            scheduler.ScheduleAsync<StaticCountingHandler>(o =>
+            {
+                o.RunAt = DateTimeOffset.UtcNow + TimeSpan.FromMilliseconds(300);
+            }, h =>
             {
                 h.SomeOption = "SomeValue";
             });
@@ -71,7 +74,7 @@ namespace reactive.tests.Scheduled
                 };
 
                 ScheduledProducer scheduler = new ScheduledProducer(settings);
-                scheduler.ScheduleAsync<StaticCountingHandler>(DateTimeOffset.UtcNow, options: o => o.RepeatIndefinitely(CronTemplates.Minutely()));
+                scheduler.ScheduleAsync<StaticCountingHandler>(o => o.RepeatIndefinitely(CronTemplates.Minutely()));
                 scheduler.Start(); // <-- starts background thread to poll for tasks
 
                 Assert.True(StaticCountingHandler.Count == 0, "handler should not have queued immediately since tasks are delayed");

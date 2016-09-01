@@ -14,6 +14,7 @@ It gives you high performing, non-blocking and parallelized eventing. You build 
 - You want to synchronize activity between various application components at the event level
 - You want to use the "[shared nothing](http://en.wikipedia.org/wiki/Shared_nothing_architecture)" integration pattern
 - You want to transform events into one or more materialized views for queries, etc. (event sourcing)
+- You want to produce version-safe events on a schedule, without requiring additional infrastructure
 
 ### Usage
 --------
@@ -38,4 +39,4 @@ block.WaitOne();
 
 - Custom task schedulers in the `Schedulers` folder are provided for [convenience](http://blogs.msdn.com/b/pfxteam/archive/2010/04/04/9990342.aspx) and  Copyright (c) Microsoft Corporation.
 - This is a streamlined version of [copper](https://github.com/danielcrenna/vault/tree/master/copper), a library I wrote in 2012.
-- This library also subsumes the [linger](https://github.com/danielcrenna/vault/tree/master/linger) library for task scheduling.
+- This library also subsumes the [linger](https://github.com/danielcrenna/vault/tree/master/linger) library for delayed message production on a schedule.

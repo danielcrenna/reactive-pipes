@@ -7,13 +7,16 @@ namespace reactive.pipes.Scheduler
     {
         /// <summary>
         /// Schedules a new task for delayed execution for the given producer.
+        /// 
+        /// If the user does NOT provide a RunAt during options, but an expression IS provided, the next occurrence of the expression, relative to now, will be selected as the start time.
+        /// Otherwise, the task will be scheduled for now.
+        /// 
         /// </summary>
         /// <typeparam name="T">The type of the task. The task is created at trigger time. The trigger type must have a parameterless constructor.</typeparam>
-        /// <param name="runAt">The time to execute the task. If the task repeats, the first occurrence. If no value is provided, the next occurence is used, or, the task is queued immediately if the task does not repeat.</param>
         /// <param name="options">Allows configuring task-specific features. Note that this is NOT invoked at invocation time lazily, but at scheduling time (i.e. immediately). </param>
         /// <param name="configure">Allows setting parameters on the scheduled task. Note that this is NOT invoked at invocation time lazily, but at scheduling time (i.e. immediately).</param>
         /// <returns></returns>
-        public static bool ScheduleAsync<T>(this ScheduledProducer producer, DateTimeOffset? runAt = null, Action<ScheduledTask> options = null, Action<T> configure = null) where T : class, new()
+        public static bool ScheduleAsync<T>(this ScheduledProducer producer, Action<ScheduledTask> options = null, Action<T> configure = null) where T : class, new()
         {
             T instance = null;
 
@@ -23,19 +26,27 @@ namespace reactive.pipes.Scheduler
                 configure(instance);
             }
 
-            return QueueForExecution<T>(producer, runAt, options, instance);
+            return QueueForExecution<T>(producer, options, instance);
         }
         
-        private static bool QueueForExecution<T>(this ScheduledProducer producer, DateTimeOffset? runAt, Action<ScheduledTask> options, object instance)
+        private static bool QueueForExecution<T>(this ScheduledProducer producer, Action<ScheduledTask> options, object instance)
         {
             var task = NewTask<T>(producer.Settings, instance);
 
-            options?.Invoke(task);
+            options?.Invoke(task); // <-- at this stage, task should have a RunAt set by the user or it will be default
 
-            // If we have repeat info and don't provide initial RunAt, defer to next occurrence; 
-            //    otherwise, do it now (since we are provided no other alternative)
+            // Validate the CRON expression:
+            if (!string.IsNullOrWhiteSpace(task.Expression) && !task.HasValidExpression)
+                throw new ArgumentException("The provided CRON expression is invalid. Have you tried the CronTemplates?");
 
-            task.RunAt = runAt ?? (task.NextOccurrence ?? DateTimeOffset.UtcNow);
+            // Handle when no start time is provided up front
+            if (task.RunAt == default(DateTimeOffset))
+            {
+                task.RunAt = DateTimeOffset.UtcNow;
+
+                if (task.NextOccurrence.HasValue)
+                    task.RunAt = task.NextOccurrence.Value;
+            }
 
             if (!producer.Settings.DelayTasks)
                 return producer.AttemptTask(task, false);

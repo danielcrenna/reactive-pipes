@@ -43,22 +43,32 @@ namespace reactive.tests.Scheduled
             Assert.Equal(7, diff.Days);
         }
 
-        [Theory, InlineData(DayOfWeek.Monday, DayOfWeek.Thursday)]
-        public void Every_nth_and_mth_weekday(DayOfWeek n, DayOfWeek m)
+        [Theory]
+        [InlineData(DayOfWeek.Monday, DayOfWeek.Tuesday, 1)]
+        [InlineData(DayOfWeek.Monday, DayOfWeek.Wednesday, 2)]
+        [InlineData(DayOfWeek.Monday, DayOfWeek.Thursday, 3)]
+        [InlineData(DayOfWeek.Monday, DayOfWeek.Friday, 4)]
+        [InlineData(DayOfWeek.Monday, DayOfWeek.Saturday, 5)]
+        [InlineData(DayOfWeek.Monday, DayOfWeek.Sunday, 6)]
+        public void Every_nth_and_mth_weekday(DayOfWeek n, DayOfWeek m, int expected)
         {
-            var cron = CronTemplates.WeekDaily(onDays: new []{ n, m });
-            var schedule = CrontabSchedule.Parse(cron);
-            var diff = CompareTwoCronOccurences(schedule);
-            int expected = m - n;
+            string cron = CronTemplates.WeekDaily(onDays: new[] { n, m });
+            CrontabSchedule schedule = CrontabSchedule.Parse(cron);
+
+            // These tests would be temporal if we used 'now', so must start from a known fixed date
+            DateTime start = new DateTime(2016, 9, 4);
+            DateTime from = schedule.GetNextOccurrence(start); // should always start on 9/5/2016 (Monday)
+            DateTime to = schedule.GetNextOccurrence(from);
+            TimeSpan diff = to - from;
             Assert.Equal(expected, diff.Days);
         }
 
         [Fact]
         public void Monthly_on_first_of_month()
         {
-            var cron = CronTemplates.Monthly();
-            var schedule = CrontabSchedule.Parse(cron);
-            var diff = CompareTwoCronOccurences(schedule);
+            string cron = CronTemplates.Monthly();
+            CrontabSchedule schedule = CrontabSchedule.Parse(cron);
+            TimeSpan diff = CompareTwoCronOccurences(schedule);
             Assert.True(diff.Days == 30 || diff.Days == 31);
         }
 

@@ -33,7 +33,7 @@ namespace reactive.pipes.Scheduler
 
             for (var i = 1; i < onDays.Length; i++)
             {
-                expression = $"{expression},{(int)onDays[i] + 1}";
+                expression = $"{expression},{(int)onDays[i]}";
             }
 
             return expression;

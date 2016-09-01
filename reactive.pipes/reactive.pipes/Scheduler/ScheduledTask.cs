@@ -67,14 +67,23 @@ namespace reactive.pipes.Scheduler
                 return false;
             }
         }
-
         [JsonIgnore] public DateTimeOffset? NextOccurrence => GetNextOccurence();
         [JsonIgnore] public DateTimeOffset? LastOccurrence => GetLastOccurrence();
         [JsonIgnore] public IEnumerable<DateTimeOffset> AllOccurrences => GetAllOccurrences();
+
+        [JsonIgnore]
+        public bool HasValidExpression
+        {
+            get
+            {
+                CrontabSchedule schedule = TryParseCron();
+                return schedule != null;
+            }
+        }
         
         private IEnumerable<DateTimeOffset> GetAllOccurrences()
         {
-            if (string.IsNullOrWhiteSpace(Expression))
+            if (!HasValidExpression)
                 return Enumerable.Empty<DateTimeOffset>();
 
             if (!End.HasValue)
@@ -85,7 +94,7 @@ namespace reactive.pipes.Scheduler
 
         private DateTimeOffset? GetNextOccurence()
         {
-            if (string.IsNullOrWhiteSpace(Expression))
+            if (!HasValidExpression)
                 return null;
 
             // important: never iterate occurrences, the series could be inadvertently huge (i.e. 100 years of seconds)
@@ -94,7 +103,7 @@ namespace reactive.pipes.Scheduler
 
         private DateTimeOffset? GetLastOccurrence()
         {
-            if (string.IsNullOrWhiteSpace(Expression))
+            if (!HasValidExpression)
                 return null;
 
             if (!End.HasValue)
@@ -106,7 +115,6 @@ namespace reactive.pipes.Scheduler
         private DateTimeOffset? GetNextOccurrenceInInfiniteSeries()
         {
             CrontabSchedule schedule = TryParseCron();
-
             if (schedule == null)
                 return null;
 
