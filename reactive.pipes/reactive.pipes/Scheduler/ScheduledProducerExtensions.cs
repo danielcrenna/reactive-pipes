@@ -15,7 +15,7 @@ namespace reactive.pipes.Scheduler
         /// <typeparam name="T">The type of the task. The task is created at trigger time. The trigger type must have a parameterless constructor.</typeparam>
         /// <param name="options">Allows configuring task-specific features. Note that this is NOT invoked at invocation time lazily, but at scheduling time (i.e. immediately). </param>
         /// <param name="configure">Allows setting parameters on the scheduled task. Note that this is NOT invoked at invocation time lazily, but at scheduling time (i.e. immediately).</param>
-        /// <returns></returns>
+        /// <returns>Whether the scheduled operation was successfull; if `true`, it was either scheduled or ran successfully, depending on configuration. If `false`, it either failed to schedule or failed during execution, depending on configuration.</returns>
         public static bool ScheduleAsync<T>(this ScheduledProducer producer, Action<ScheduledTask> options = null, Action<T> configure = null) where T : class, new()
         {
             T instance = null;
@@ -23,6 +23,7 @@ namespace reactive.pipes.Scheduler
             if (configure != null)
             {
                 instance = (T)Activator.CreateInstance(typeof(T));
+
                 configure(instance);
             }
 
@@ -47,6 +48,9 @@ namespace reactive.pipes.Scheduler
                 if (task.NextOccurrence.HasValue)
                     task.RunAt = task.NextOccurrence.Value;
             }
+
+            // Set the "Start" property only once, equal to the very first RunAt 
+            task.Start = task.RunAt;
 
             if (!producer.Settings.DelayTasks)
                 return producer.AttemptTask(task, false);
