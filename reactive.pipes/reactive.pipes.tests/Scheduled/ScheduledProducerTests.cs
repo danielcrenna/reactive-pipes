@@ -32,7 +32,7 @@ namespace reactive.tests.Scheduled
         }
 
         [Fact]
-        public void Queues_for_delayed_execution()
+        public async Task Queues_for_delayed_execution()
         {
             ScheduledProducerSettings settings = new ScheduledProducerSettings
             {
@@ -53,7 +53,7 @@ namespace reactive.tests.Scheduled
             scheduler.Start(); // <-- starts background thread to poll for tasks
 
             Assert.True(StaticCountingHandler.Count == 0, "handler should not have queued immediately since tasks are delayed");
-            Thread.Sleep(1000); // <-- should poll for tasks about 10 times
+            await Task.Delay(1000); // <-- should poll for tasks about 10 times
             Assert.True(StaticCountingHandler.Count > 0, "handler should have executed since we scheduled it in the future");
             Assert.True(StaticCountingHandler.Count == 1, "handler should have only executed once since it does not repeat");
         }

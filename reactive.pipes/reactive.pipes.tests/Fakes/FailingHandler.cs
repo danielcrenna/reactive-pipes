@@ -1,5 +1,4 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using reactive.pipes;
 
 namespace reactive.tests.Fakes
@@ -12,14 +11,6 @@ namespace reactive.tests.Fakes
         {
             Handled++;
             return Task.FromResult(false);
-        }
-    }
-
-    public class ErroringHandler : IConsume<ErrorEvent>
-    {
-        public Task<bool> HandleAsync(ErrorEvent message)
-        {
-            throw new Exception("The message made me do it!");
         }
     }
 }

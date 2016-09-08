@@ -95,10 +95,13 @@
     <Compile Include="IConsume.cs" />
     <Compile Include="IMessageAggregator.cs" />
     <Compile Include="IMessagePublisher.cs" />
+    <Compile Include="IObservableWithOutcomes.cs" />
     <Compile Include="IPipe.cs" />
     <Compile Include="IProduce.cs" />
     <Compile Include="ISerializer.cs" />
     <Compile Include="ITypeResolver.cs" />
+    <Compile Include="ObservableOutcome.cs" />
+    <Compile Include="OutcomePolicy.cs" />
     <Compile Include="Producers\BackgroundProducer.cs" />
     <Compile Include="Producers\BackgroundThreadProducer.cs" />
     <Compile Include="Producers\ActionObserver.cs" />
@@ -135,6 +138,7 @@
     <Compile Include="Serializers\BinarySerializer.cs" />
     <Compile Include="Serializers\JsonSerializer.cs" />
     <Compile Include="Serializers\XmlSerializer.cs" />
+    <Compile Include="WrappedSubject.cs" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>

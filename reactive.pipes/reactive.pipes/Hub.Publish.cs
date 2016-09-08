@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Reactive.Subjects;
 using System.Reflection;
 using System.Threading.Tasks;
 
@@ -8,9 +7,9 @@ namespace reactive.pipes
 {
     partial class Hub : IMessagePublisher
     {
-        public async Task<bool> PublishAsync(object message)
+        public Task<bool> PublishAsync(object message)
         {
-            return await Task.Run(() => Publish(message));
+            return Task.Run(() => Publish(message));
         }
 
         public bool Publish(object message)
@@ -52,7 +51,7 @@ namespace reactive.pipes
 
             return function;
         }
-
+        
         private bool PublishTyped<T>(T @event)
         {
             IDisposable subscription;
@@ -60,17 +59,20 @@ namespace reactive.pipes
 
             if (_subscriptions.TryGetValue(subscriptionType, out subscription))
             {
-                ISubject<T> subject = (ISubject<T>)subscription;
-                try
+                lock (subscription)
                 {
-                    subject.OnNext(@event);
-                    return _results[subscriptionType];
-                }
-                catch (Exception ex)
-                {
-                    subject.OnError(ex); // <-- this kind of exception will cancel the observable sequence
-                    _results[subscriptionType] = false;
-                    return false;
+                    WrappedSubject<T> subject = (WrappedSubject<T>)subscription;
+                    try
+                    {
+                        subject.Outcomes.Clear();
+                        subject.OnNext(@event);
+                        return subject.Handled;
+                    }
+                    catch (Exception ex)
+                    {
+                        subject.OnError(ex); // <-- this kind of exception will cancel the observable sequence
+                        return false;
+                    }
                 }
             }
 

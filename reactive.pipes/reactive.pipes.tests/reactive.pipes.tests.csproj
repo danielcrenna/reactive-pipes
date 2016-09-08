@@ -80,11 +80,13 @@
     <Compile Include="EventPublisherTests.cs" />
     <Compile Include="Fakes\BaseEvent.cs" />
     <Compile Include="Fakes\ErrorEvent.cs" />
+    <Compile Include="Fakes\ErroringHandler.cs" />
     <Compile Include="Fakes\FailingHandler.cs" />
     <Compile Include="Fakes\IEvent.cs" />
     <Compile Include="Fakes\InheritedEvent.cs" />
     <Compile Include="Fakes\LongRunningHandler.cs" />
     <Compile Include="Fakes\ManifoldHierarchicalEventHandler.cs" />
+    <Compile Include="Fakes\NotErroringHandler.cs" />
     <Compile Include="Fakes\SuccessHandler.cs" />
     <Compile Include="Fakes\ThrowingHandler.cs" />
     <Compile Include="FileConsumerTests.cs" />

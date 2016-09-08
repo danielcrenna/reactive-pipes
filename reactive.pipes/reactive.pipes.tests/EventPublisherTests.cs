@@ -32,7 +32,7 @@ namespace reactive.tests
             // SubscribeWithDelegate:
             {
                 hub.Subscribe<InheritedEvent>(e => { throw new Exception(); }, ex => { errors++; });
-                object @event = new InheritedEvent { Id = 123, Value = "ABC" };
+                object @event = new InheritedEvent {Id = 123, Value = "ABC"};
                 sent = hub.Publish(@event);
                 Assert.False(sent, "publishing a failed event should bubble as false to the publish result");
                 Assert.Equal(1, errors);
@@ -40,7 +40,8 @@ namespace reactive.tests
 
             // SubscribeWithDelegateAndTopic:
             {
-                hub.Subscribe<StringEvent>(se => { throw new Exception(); }, @event => @event.Text == "bababooey!", ex => { errors++; });
+                hub.Subscribe<StringEvent>(se => { throw new Exception(); }, @event => @event.Text == "bababooey!",
+                    ex => { errors++; });
                 sent = hub.Publish(new StringEvent("not bababooey!"));
                 Assert.False(sent);
                 Assert.Equal(1, errors);
@@ -65,6 +66,29 @@ namespace reactive.tests
                 Assert.False(sent);
                 Assert.Equal(4, errors);
             }
+        }
+
+        [Fact]
+        public async void Multiple_subscriptions_with_different_results_should_be_pessimistic_and_sequential()
+        {
+            var hub = new Hub();
+            var pub = (IMessagePublisher) hub;
+            var sub = (IMessageAggregator) hub;
+            
+            // two handlers for the same event
+            sub.Subscribe(new ErroringHandler());           // false
+            sub.Subscribe(new NotErroringHandler());        // true
+
+            // and one command to rule them all
+            var two = pub.PublishAsync(new ErrorEvent { Error = false });
+            var one = pub.PublishAsync(new ErrorEvent { Error = true });
+
+            bool bad = await one;
+            Assert.False(bad, "whoops, outcomes are optimistic"); // <-- pessimistic
+
+            // now, send another message, because we have to ensure outcomes are cleared!
+            bool good = await two;
+            Assert.True(good, "whoops, outcomes are broken"); // <-- idempotent outcomes
         }
     }
 }
