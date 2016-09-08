@@ -8,6 +8,6 @@ namespace reactive.pipes
     /// <typeparam name="T"></typeparam>
     public interface IConsume<in T>
     {
-        Task<bool> HandleAsync(T @event);
+        Task<bool> HandleAsync(T message);
     }
 }

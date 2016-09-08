@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using reactive.pipes;
 
 namespace reactive.tests.Fakes
@@ -7,10 +8,18 @@ namespace reactive.tests.Fakes
     {
         public int Handled { get; private set; }
 
-        public Task<bool> HandleAsync(IEvent @event)
+        public Task<bool> HandleAsync(IEvent message)
         {
             Handled++;
             return Task.FromResult(false);
+        }
+    }
+
+    public class ErroringHandler : IConsume<ErrorEvent>
+    {
+        public Task<bool> HandleAsync(ErrorEvent message)
+        {
+            throw new Exception("The message made me do it!");
         }
     }
 }

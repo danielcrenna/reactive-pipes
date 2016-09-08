@@ -7,7 +7,6 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Reflection;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace reactive.pipes
 {
@@ -16,95 +15,23 @@ namespace reactive.pipes
     /// 
     /// Basically, it is both an aggregator and a publisher, and is typically used to provide pub-sub services in-process.
     /// </summary>
-    public class Hub : IMessageAggregator, IMessagePublisher
+    public partial class Hub : IMessageAggregator
     {
-        private readonly ITypeResolver _typeResolver;
+        private static readonly Action<Exception> NoopErrorHandler = (e => { });
 
+        private readonly ITypeResolver _typeResolver;
         private readonly Hashtable _byTypeDispatch = new Hashtable();
         private readonly ConcurrentDictionary<Type, IDisposable> _subscriptions = new ConcurrentDictionary<Type, IDisposable>();
         private readonly ConcurrentDictionary<Type, CancellationTokenSource> _unsubscriptions = new ConcurrentDictionary<Type, CancellationTokenSource>();
         private readonly ConcurrentDictionary<Type, bool> _results = new ConcurrentDictionary<Type, bool>();
-
+        
         public Hub(ITypeResolver assemblyResolver = null)
         {
             _typeResolver = assemblyResolver ?? new DefaultTypeResolver();
         }
 
-        public async Task<bool> PublishAsync(object message)
-        {
-            return await Task.Run(() => Publish(message));
-        }
-
-        public bool Publish(object message)
-        {
-            Type type = message.GetType();
-            Func<object, bool> dispatcher = _byTypeDispatch[type] as Func<object, bool>;
-            if (dispatcher == null)
-            {
-                dispatcher = BuildByTypeDispatcher(type);
-                _byTypeDispatch[type] = dispatcher;
-            }
-            return dispatcher(message);
-        }
-
-        private Func<object, bool> BuildByTypeDispatcher(Type superType)
-        {
-            const BindingFlags binding = BindingFlags.NonPublic | BindingFlags.Instance;
-            MethodInfo publishTyped = typeof(Hub).GetTypeInfo().GetMethod(nameof(PublishTyped), binding);
-
-            Dictionary<Type, MethodInfo> dispatchers = new Dictionary<Type, MethodInfo>
-            {
-                {superType, publishTyped.MakeGenericMethod(superType)}
-            };
-
-            foreach (var childType in _typeResolver.GetAncestors(superType))
-                dispatchers.Add(childType, publishTyped.MakeGenericMethod(childType));
-
-            Func<object, bool> function = @event =>
-            {
-                bool result = true;
-                foreach (var dispatcher in dispatchers)
-                {
-                    MethodInfo method = dispatcher.Value;
-
-                    bool handled = (bool)method.Invoke(this, new[] { @event });
-
-                    result &= handled;
-                }
-                return result;
-            };
-
-            return function;
-        }
-
-        private bool PublishTyped<T>(T @event)
-        {
-            IDisposable subscription;
-            Type subscriptionType = typeof(T);
-
-            if (_subscriptions.TryGetValue(subscriptionType, out subscription))
-            {
-                ISubject<T> subject = (ISubject<T>)subscription;
-                try
-                {
-                    subject.OnNext(@event);
-                    return _results[subscriptionType];
-                }
-                catch (Exception ex)
-                {
-                    subject.OnError(ex); // <-- this kind of exception will cancel the observable sequence
-                    _results[subscriptionType] = false;
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Subscribes a manifold handler. This is required if a handler acts as a consumer for more than one event type. 
-        /// </summary>
-        public void Subscribe(object handler)
+        /// <summary> Subscribes a manifold handler. This is required if a handler acts as a consumer for more than one event type. </summary>
+        public void Subscribe(object handler, Action<Exception> onError = null)
         {
             Type type = handler.GetType();
             Type[] interfaces = type.GetTypeInfo().GetInterfaces();
@@ -118,77 +45,67 @@ namespace reactive.pipes
             {
                 // SubscribeByInterface(consumer);
                 Type handlerType = consumer.GetTypeInfo().GetGenericArguments()[0];
-                subscribeByInterface.MakeGenericMethod(handlerType).Invoke(this, new[] { handler });
+                subscribeByInterface.MakeGenericMethod(handlerType).Invoke(this, new[] { handler, onError ?? NoopErrorHandler });
             }
         }
 
-        public void Subscribe<T>(Action<T> handler)
+        public void Subscribe<T>(Action<T> handler, Action<Exception> onError = null)
         {
-            SubscribeByDelegate(handler);
+            SubscribeByDelegate(handler, onError ?? NoopErrorHandler);
         }
 
-        public void Subscribe<T>(Action<T> handler, Func<T, bool> topic)
+        public void Subscribe<T>(Action<T> handler, Func<T, bool> topic, Action<Exception> onError = null)
         {
-            SubscribeByDelegateAndTopic(handler, topic);
+            SubscribeByDelegateAndTopic(handler, topic, onError ?? NoopErrorHandler);
         }
 
-        public void Subscribe<T>(IConsume<T> consumer)
+        public void Subscribe<T>(IConsume<T> consumer, Action<Exception> onError = null)
         {
-            SubscribeByInterface(consumer);
+            SubscribeByInterface(consumer, onError ?? NoopErrorHandler);
         }
 
-        public void Subscribe<T>(IConsume<T> consumer, Func<T, bool> topic)
+        public void Subscribe<T>(IConsume<T> consumer, Func<T, bool> topic, Action<Exception> onError)
         {
-            SubscribeByInterfaceAndTopic(consumer, topic);
+            SubscribeByInterfaceAndTopic(consumer, topic, onError ?? NoopErrorHandler);
         }
 
-        public void Unsubscribe<T>()
-        {
-            IDisposable reference;
-            _subscriptions.TryRemove(typeof(T), out reference);
-
-            CancellationTokenSource cancel;
-            if (_unsubscriptions.TryGetValue(typeof(T), out cancel))
-                cancel.Cancel();
-        }
-
-        private void SubscribeByDelegate<T>(Action<T> handler)
+        private void SubscribeByDelegate<T>(Action<T> handler, Action<Exception> onError)
         {
             IDisposable subscription = GetSubscriptionSubject<T>();
             ISubject<T> subject = (ISubject<T>)subscription;
             IObservable<T> observable = subject.AsObservable();
 
-            SubscribeWithDelegate(handler, observable);
+            SubscribeWithDelegate(handler, observable, onError);
         }
 
-        private void SubscribeByDelegateAndTopic<T>(Action<T> handler, Func<T, bool> topic)
+        private void SubscribeByDelegateAndTopic<T>(Action<T> handler, Func<T, bool> topic, Action<Exception> onError)
         {
             IDisposable subscription = GetSubscriptionSubject<T>();
             ISubject<T> subject = (ISubject<T>)subscription;
             IObservable<T> observable = subject.AsObservable();
 
-            SubscribeWithDelegate(handler, observable, topic);
+            SubscribeWithDelegate(handler, observable, onError, topic);
         }
 
-        private void SubscribeByInterface<T>(IConsume<T> consumer)
+        private void SubscribeByInterface<T>(IConsume<T> consumer, Action<Exception> onError)
         {
             IDisposable subscription = GetSubscriptionSubject<T>();
             ISubject<T> subject = (ISubject<T>)subscription;
             IObservable<T> observable = subject.AsObservable();
 
-            SubscribeWithInterface(consumer, observable);
+            SubscribeWithInterface(consumer, observable, onError);
         }
 
-        private void SubscribeByInterfaceAndTopic<T>(IConsume<T> consumer, Func<T, bool> topic)
+        private void SubscribeByInterfaceAndTopic<T>(IConsume<T> consumer, Func<T, bool> topic, Action<Exception> onError)
         {
             IDisposable subscription = GetSubscriptionSubject<T>();
             ISubject<T> subject = (ISubject<T>)subscription;
             IObservable<T> observable = subject.AsObservable();
 
-            SubscribeWithInterface(consumer, observable, topic);
+            SubscribeWithInterface(consumer, observable, onError, topic);
         }
 
-        private void SubscribeWithDelegate<T>(Action<T> handler, IObservable<T> observable, Func<T, bool> filter = null)
+        private void SubscribeWithDelegate<T>(Action<T> handler, IObservable<T> observable, Action<Exception> onError, Func<T, bool> filter = null)
         {
             var subscriptionType = typeof(T);
             var unsubscription = _unsubscriptions.GetOrAdd(subscriptionType, t => new CancellationTokenSource());
@@ -207,14 +124,11 @@ namespace reactive.pipes
                             _results[subscriptionType] = true;
                         }
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
-                        _results[subscriptionType] = false;
+                        OnHandlerError(onError, ex, subscriptionType);
                     }
-                }, exception =>
-                {
-                    _results[subscriptionType] = false;
-                }, () => { }, unsubscription.Token);
+                }, e => OnError(e, subscriptionType), () => OnCompleted(subscriptionType), unsubscription.Token);
             }
             else
             {
@@ -225,18 +139,15 @@ namespace reactive.pipes
                         handler(@event);
                         _results[subscriptionType] = true;
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
-                        _results[subscriptionType] = false;
+                        OnHandlerError(onError, ex, subscriptionType);
                     }
-                }, exception =>
-                {
-                    _results[subscriptionType] = false;
-                }, () => { }, unsubscription.Token);
+                }, e => OnError(e, subscriptionType), () => OnCompleted(subscriptionType), unsubscription.Token);
             }
         }
 
-        private void SubscribeWithInterface<T>(IConsume<T> consumer, IObservable<T> observable, Func<T, bool> filter = null)
+        private void SubscribeWithInterface<T>(IConsume<T> consumer, IObservable<T> observable, Action<Exception> onError, Func<T, bool> filter = null)
         {
             var subscriptionType = typeof(T);
             var unsubscription = _unsubscriptions.GetOrAdd(subscriptionType, t => new CancellationTokenSource());
@@ -252,14 +163,11 @@ namespace reactive.pipes
                         else
                             _results[subscriptionType] = consumer.HandleAsync(@event).ConfigureAwait(false).GetAwaiter().GetResult();
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
-                        _results[subscriptionType] = false;
+                        OnHandlerError(onError, ex, subscriptionType);
                     }
-                }, exception => { }, () =>
-                {
-                    _results[subscriptionType] = false;
-                }, unsubscription.Token);
+                }, e => OnError(e, subscriptionType), () => OnCompleted(subscriptionType), unsubscription.Token);
             }
             else
             {
@@ -269,16 +177,31 @@ namespace reactive.pipes
                     {
                         _results[subscriptionType] = consumer.HandleAsync(@event).ConfigureAwait(false).GetAwaiter().GetResult();
                     }
-                    catch
+                    catch(Exception ex)
                     {
-                        _results[subscriptionType] = false;
+                        OnHandlerError(onError, ex, subscriptionType);
                     }
-                }, exception => { }, () =>
-                {
-                    _results[subscriptionType] = false;
-                }, unsubscription.Token);
+                }, e => OnError(e, subscriptionType), () => OnCompleted(subscriptionType), unsubscription.Token);
             }
-            
+        }
+
+        /// <summary> An error has been caught coming from the user handler; we need to allow a hook to pipeline it. </summary>
+        private void OnHandlerError(Action<Exception> a, Exception e, Type t)
+        {
+            a(e);
+            _results[t] = false;
+        }
+
+        /// <summary> The observable sequence has completed; technically, this should never happen unless exposing, so we should treat this similarly to a fault since we can't guarantee delivery. </summary>
+        private void OnCompleted(Type t)
+        {
+            _results[t] = false;
+        }
+
+        /// <summary> The observable sequence falted; technically this should never happen, since it would also cause observances to fail going forward on this thread, so we should treat this similarly to a fault, since delivery is shut down.</summary>
+        private void OnError(Exception e, Type subscriptionType)
+        {
+            _results[subscriptionType] = false;
         }
 
         private IDisposable GetSubscriptionSubject<T>()
@@ -291,6 +214,16 @@ namespace reactive.pipes
 
                 return subject;
             });
+        }
+
+        public void Unsubscribe<T>()
+        {
+            IDisposable reference;
+            _subscriptions.TryRemove(typeof(T), out reference);
+
+            CancellationTokenSource cancel;
+            if (_unsubscriptions.TryGetValue(typeof(T), out cancel))
+                cancel.Cancel();
         }
 
         public void Dispose()

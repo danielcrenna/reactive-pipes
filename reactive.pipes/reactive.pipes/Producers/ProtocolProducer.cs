@@ -27,11 +27,11 @@ namespace reactive.pipes.Producers
             _handler = consumer.HandleAsync;
         }
 
-        public async Task<bool> HandleAsync(T @event)
+        public async Task<bool> HandleAsync(T message)
         {
             return await Task.Run(() =>
             {
-                var serialized = _serializer.SerializeToStream(@event);
+                var serialized = _serializer.SerializeToStream(message);
                 _handler(serialized);
                 return true;
             });

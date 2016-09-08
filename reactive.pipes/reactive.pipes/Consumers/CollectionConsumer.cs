@@ -40,9 +40,9 @@ namespace reactive.pipes.Consumers
         }
         public int Count => _collection.Count;
 
-        public Task<bool> HandleAsync(T @event)
+        public Task<bool> HandleAsync(T message)
         {
-            return Task.FromResult(_collection.TryAdd(@event));
+            return Task.FromResult(_collection.TryAdd(message));
         }
 
         public virtual void Dispose(bool disposing)

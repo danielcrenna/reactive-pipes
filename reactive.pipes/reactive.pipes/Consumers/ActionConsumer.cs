@@ -50,9 +50,9 @@ namespace reactive.pipes.Consumers
             _delegate = @delegate;
         }
 
-        public Task<bool> HandleAsync(T @event)
+        public Task<bool> HandleAsync(T message)
         {
-            return _delegate(@event);
+            return _delegate(message);
         }
     }
 }

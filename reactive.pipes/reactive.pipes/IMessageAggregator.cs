@@ -7,10 +7,11 @@ namespace reactive.pipes
     /// </summary>
     public interface IMessageAggregator
     {
-        void Subscribe<T>(Action<T> @handler);
-        void Subscribe<T>(Action<T> @handler, Func<T, bool> topic);
-        void Subscribe<T>(IConsume<T> consumer);
-        void Subscribe<T>(IConsume<T> consumer, Func<T, bool> topic);
+        void Subscribe(object handler, Action<Exception> onError = null);
+        void Subscribe<T>(Action<T> @handler, Action<Exception> onError = null);
+        void Subscribe<T>(Action<T> @handler, Func<T, bool> topic, Action<Exception> onError = null);
+        void Subscribe<T>(IConsume<T> consumer, Action<Exception> onError = null);
+        void Subscribe<T>(IConsume<T> consumer, Func<T, bool> topic, Action<Exception> onError = null);
         void Unsubscribe<T>();
     }
 }

@@ -9,7 +9,7 @@ namespace reactive.tests.Fakes
     {
         public int Handled { get; private set; }
 
-        public async Task<bool> HandleAsync(IEvent @event)
+        public async Task<bool> HandleAsync(IEvent message)
         {
             await WaitAround();
             return true;

@@ -90,7 +90,8 @@
     <Compile Include="Extensions\CollectionExtensions.cs" />
     <Compile Include="Extensions\ObservableExtensions.cs" />
     <Compile Include="Extensions\TaskExtensions.cs" />
-    <Compile Include="Hub.cs" />
+    <Compile Include="Hub.Subscribe.cs" />
+    <Compile Include="Hub.Publish.cs" />
     <Compile Include="IConsume.cs" />
     <Compile Include="IMessageAggregator.cs" />
     <Compile Include="IMessagePublisher.cs" />

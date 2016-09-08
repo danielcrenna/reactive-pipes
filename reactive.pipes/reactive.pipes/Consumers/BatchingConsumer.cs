@@ -67,9 +67,9 @@ namespace reactive.pipes.Consumers
         
         public abstract bool Handle(IList<T> batch);
 
-        public virtual Task<bool> HandleAsync(T @event)
+        public virtual Task<bool> HandleAsync(T message)
         {
-            Task<bool> added = Task.FromResult(_collection.TryAdd(@event));
+            Task<bool> added = Task.FromResult(_collection.TryAdd(message));
 
             return added;
         }

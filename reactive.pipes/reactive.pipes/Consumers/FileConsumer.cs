@@ -30,11 +30,11 @@ namespace reactive.pipes.Consumers
             await @event.CopyToAsync(file);
         }
 
-        public Task<bool> HandleAsync(Stream @event)
+        public Task<bool> HandleAsync(Stream message)
         {
             try
             {
-                Save(@event);
+                Save(message);
                 return Task.FromResult(true);
             }
             catch (Exception)
@@ -85,11 +85,11 @@ namespace reactive.pipes.Consumers
             }
         }
 
-        public Task<bool> HandleAsync(T @event)
+        public Task<bool> HandleAsync(T message)
         {
             try
             {
-                var stream = _serializer.SerializeToStream(@event);
+                var stream = _serializer.SerializeToStream(message);
                 Save(stream);
                 return Task.FromResult(true);
             }
