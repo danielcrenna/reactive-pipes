@@ -38,18 +38,6 @@
     <StartupObject />
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Dapper, Version=1.50.2.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Dapper.1.50.2\lib\net45\Dapper.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="ImpromptuInterface, Version=6.2.2.0, Culture=neutral, PublicKeyToken=0b1781c923b2975b, processorArchitecture=MSIL">
-      <HintPath>..\packages\ImpromptuInterface.6.2.2\lib\net40\ImpromptuInterface.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="NCrontab, Version=3.1.19111.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\ncrontab.3.1.0\lib\net45\NCrontab.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="Newtonsoft.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
@@ -87,7 +75,6 @@
     <Compile Include="Consumers\FileConsumer.cs" />
     <Compile Include="Consumers\ProtocolConsumer.cs" />
     <Compile Include="Extensions\BlockingCollectionExtensions.cs" />
-    <Compile Include="Extensions\CollectionExtensions.cs" />
     <Compile Include="Extensions\ObservableExtensions.cs" />
     <Compile Include="Extensions\TaskExtensions.cs" />
     <Compile Include="Hub.Subscribe.cs" />
@@ -121,26 +108,14 @@
     <Compile Include="Schedulers\RoundRobinSchedulerGroup.cs" />
     <Compile Include="Schedulers\ThreadPerTaskScheduler.cs" />
     <Compile Include="Schedulers\WorkStealingTaskScheduler.cs" />
-    <Compile Include="Scheduler\CronTemplates.cs" />
-    <Compile Include="Scheduler\ErrorStrings.cs" />
-    <Compile Include="Scheduler\HandlerInfo.cs" />
-    <Compile Include="Scheduler\HandlerMethods.cs" />
-    <Compile Include="Scheduler\InMemoryScheduleStore.cs" />
-    <Compile Include="Scheduler\Interfaces.cs" />
-    <Compile Include="Scheduler\IScheduleStore.cs" />
-    <Compile Include="Scheduler\LockedIdentity.cs" />
-    <Compile Include="Scheduler\ScheduledProducer.cs" />
-    <Compile Include="Scheduler\ScheduledProducerExtensions.cs" />
-    <Compile Include="Scheduler\ScheduledProducerSettings.cs" />
-    <Compile Include="Scheduler\ScheduledTask.cs" />
-    <Compile Include="Scheduler\ScheduledTaskExtensions.cs" />
-    <Compile Include="Scheduler\SqlScheduleStore.cs" />
     <Compile Include="Serializers\BinarySerializer.cs" />
     <Compile Include="Serializers\JsonSerializer.cs" />
     <Compile Include="Serializers\XmlSerializer.cs" />
     <Compile Include="WrappedSubject.cs" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="Scheduler\" />
+  </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>

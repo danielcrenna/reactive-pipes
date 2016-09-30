@@ -228,16 +228,13 @@ namespace reactive.pipes.Extensions
             {
                 if (collection == null)
                 {
-                    throw new ArgumentNullException("collection");
+                    throw new ArgumentNullException(nameof(collection));
                 }
 
                 _collection = collection;
             }
 
-            public override bool SupportsDynamicPartitions
-            {
-                get { return true; }
-            }
+            public override bool SupportsDynamicPartitions => true;
 
             public override IList<IEnumerator<T>> GetPartitions(int partitionCount)
             {

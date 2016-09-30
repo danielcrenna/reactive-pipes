@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>reactive.pipes</id>
-    <version>1.3.5</version>
+    <version>1.3.6</version>
     <authors>Daniel Crenna</authors>
     <owners>Daniel Crenna</owners>
     <description>A thin wrapper around Reactive Extensions for distributed application eventing middleware.</description>
@@ -19,17 +19,12 @@
       <dependency id="Rx-Linq" version="2.2.5" />
       <dependency id="Rx-Main" version="2.2.5" />
       <dependency id="Rx-PlatformServices" version="2.2.5" />
-
-      <!-- for scheduler -->
-      <dependency id="Dapper" version="1.50.2" />
-      <dependency id="ImpromptuInterface" version="6.2.2" />
-      <dependency id="ncrontab" version="3.1.0"  />
     </dependencies>
 
     <copyright>(c) 2012-2016 Daniel Crenna</copyright>
     
     <releaseNotes>
-      - v1.3.5 synchronize internal access to OnNext for subscriptions of the same type
+      - v1.3.6 split scheduling library into a separate package
     </releaseNotes>
 
   </metadata>
