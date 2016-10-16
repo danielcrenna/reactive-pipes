@@ -113,9 +113,7 @@
     <Compile Include="Serializers\XmlSerializer.cs" />
     <Compile Include="WrappedSubject.cs" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Scheduler\" />
-  </ItemGroup>
+  <ItemGroup />
   <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>

@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Reflection;
 using System.Threading;
@@ -24,9 +23,9 @@ namespace reactive.pipes
         private readonly ConcurrentDictionary<Type, IDisposable> _subscriptions = new ConcurrentDictionary<Type, IDisposable>();
         private readonly ConcurrentDictionary<Type, CancellationTokenSource> _unsubscriptions = new ConcurrentDictionary<Type, CancellationTokenSource>();
         
-        public Hub(ITypeResolver assemblyResolver = null)
+        public Hub(ITypeResolver typeResolver)
         {
-            _typeResolver = assemblyResolver ?? new DefaultTypeResolver(AppDomain.CurrentDomain.GetAssemblies());
+            _typeResolver = typeResolver;
         }
 
         /// <summary> Subscribes a manifold handler. This is required if a handler acts as a consumer for more than one event type. </summary>

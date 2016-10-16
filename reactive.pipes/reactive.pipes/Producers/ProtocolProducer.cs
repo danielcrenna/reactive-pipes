@@ -14,8 +14,6 @@ namespace reactive.pipes.Producers
         private readonly ISerializer _serializer;
         private Func<Stream, Task<bool>> _handler;
         
-        public ProtocolProducer() : this(new BinarySerializer()) { }
-        
         public ProtocolProducer(ISerializer serializer)
         {
             _serializer = serializer;

@@ -81,7 +81,7 @@ namespace reactive.pipes.scheduled
         {
             // System:
             DelayTasks = true;
-            TypeResolver = new DefaultTypeResolver();
+            TypeResolver = new DefaultTypeResolver(AppDomain.CurrentDomain.GetAssemblies());
             Store = new InMemoryScheduleStore();
             SleepInterval = TimeSpan.FromSeconds(60);
             CleanupInterval = TimeSpan.FromMinutes(5);

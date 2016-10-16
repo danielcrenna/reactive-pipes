@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using reactive.pipes.Serializers;
 
 namespace reactive.pipes.Consumers
 {
