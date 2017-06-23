@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reactive.Subjects;
 using System.Reflection;
 using System.Threading;
+using Microsoft.Extensions.DependencyModel;
 
 namespace reactive.pipes
 {
@@ -22,7 +23,21 @@ namespace reactive.pipes
         private readonly Hashtable _byTypeDispatch = new Hashtable();
         private readonly ConcurrentDictionary<Type, IDisposable> _subscriptions = new ConcurrentDictionary<Type, IDisposable>();
         private readonly ConcurrentDictionary<Type, CancellationTokenSource> _unsubscriptions = new ConcurrentDictionary<Type, CancellationTokenSource>();
-        
+
+        public Hub()
+        {
+            var assemblies = DependencyContext.Default.RuntimeLibraries
+                .SelectMany(info => info.Assemblies)
+                .Select(info => Assembly.Load(info.Name));
+
+            _typeResolver = new DefaultTypeResolver(assemblies);
+        }
+
+        public Hub(IEnumerable<Assembly> assemblies)
+        {
+            _typeResolver = new DefaultTypeResolver(assemblies);
+        }
+
         public Hub(ITypeResolver typeResolver)
         {
             _typeResolver = typeResolver;
