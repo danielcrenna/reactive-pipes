@@ -1,3 +1,5 @@
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fdanielcrenna%2Freactive-pipes.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fdanielcrenna%2Freactive-pipes?ref=badge_shield)
+
 reactive.pipes
 ======
 
@@ -40,3 +42,6 @@ block.WaitOne();
 - Custom task schedulers in the `Schedulers` folder are provided for [convenience](http://blogs.msdn.com/b/pfxteam/archive/2010/04/04/9990342.aspx) and  Copyright (c) Microsoft Corporation.
 - This is a streamlined version of [copper](https://github.com/danielcrenna/vault/tree/master/copper), a library I wrote in 2012.
 - This library also subsumes the [linger](https://github.com/danielcrenna/vault/tree/master/linger) library for delayed message production on a schedule.
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fdanielcrenna%2Freactive-pipes.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fdanielcrenna%2Freactive-pipes?ref=badge_large)
