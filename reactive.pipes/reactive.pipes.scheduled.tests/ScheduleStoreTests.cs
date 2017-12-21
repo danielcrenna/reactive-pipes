@@ -146,7 +146,7 @@ namespace reactive.tests.Scheduled
             // GetById:
             byId = Store.GetById(1);
             Assert.NotNull(byId);
-            Assert.Equal(0, byId.Tags.Count);
+            Assert.True(byId.Tags.Count == 0);
         }
 
         [Fact]

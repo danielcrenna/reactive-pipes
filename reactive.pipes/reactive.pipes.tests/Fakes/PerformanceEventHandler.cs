@@ -8,11 +8,11 @@ namespace reactive.tests.Fakes
         public int HandledString { get; private set; }
         public int HandledInteger { get; private set; }
 
-        public async Task<bool> HandleAsync(StringEvent message)
+        public Task<bool> HandleAsync(StringEvent message)
         {
             HandledString++;
-            return true;
-        }
+            return Task.FromResult(true);
+		}
 
         public Task<bool> HandleAsync(IntegerEvent message)
         {

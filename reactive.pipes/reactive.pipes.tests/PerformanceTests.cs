@@ -18,7 +18,7 @@ namespace reactive.tests
             _output = output;
         }
 
-        [Theory, InlineData(10)]
+        [Theory, InlineData(1)]
         public async void Profile_message_handling_for_simple_handler(int seconds)
         {
             PerformanceEventHandler handler = new PerformanceEventHandler();
@@ -39,7 +39,7 @@ namespace reactive.tests
                 }
             }, token);
             
-            await Task.Delay(TimeSpan.FromSeconds(1), token);
+            await Task.Delay(TimeSpan.FromSeconds(seconds), token);
 
             canceller.Cancel();
 

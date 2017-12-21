@@ -32,7 +32,7 @@ namespace reactive.tests
             FileContainsTheEvent(file, serializer, @event);
         }
 
-        private static void FileContainsTheEvent<T>(string file, ISerializer serializer, T @event)
+        private static void FileContainsTheEvent<T>(string file, ISerializer serializer, T @event) where T : class
         {
             var expected = @event.ToString();
 
@@ -48,7 +48,7 @@ namespace reactive.tests
         private string OneFileSaved(string extension)
         {
             var files = Directory.GetFiles(_fixture.Folder, "*" + extension);
-            Assert.Equal(1, files.Length);
+            Assert.Single(files);
             var file = files[0];
             return file;
         }
