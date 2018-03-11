@@ -5,8 +5,8 @@
     <Version>1.3.9</Version>
     <Description>A scheduled background worker for reactive.pipes. Allows scheduling long-running tasks in the background.</Description>
     <Copyright>© 2012-2018 Daniel Crenna</Copyright>
-    <PackageProjectUrl>http://github.com/danielcrenna/reactive-pipe</PackageProjectUrl>
-    <RepositoryUrl>http://github.com/danielcrenna/reactive-pipe</RepositoryUrl>
+    <PackageProjectUrl>http://github.com/danielcrenna/reactive-pipes</PackageProjectUrl>
+    <RepositoryUrl>http://github.com/danielcrenna/reactive-pipes</RepositoryUrl>
     <PackageLicenseUrl>https://github.com/danielcrenna/reactive-pipes/blob/master/LICENSE</PackageLicenseUrl>
     <PackageTags>distributed scheduled background jobs</PackageTags>
     <PackageReleaseNotes>- v1.3.9 fix many referencing issues from legacy stream</PackageReleaseNotes>
