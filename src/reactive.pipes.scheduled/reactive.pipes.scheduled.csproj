@@ -4,7 +4,7 @@
     <TargetFrameworks>netstandard2.0;net46</TargetFrameworks>
     <Version>1.3.9</Version>
     <Description>A scheduled background worker for reactive.pipes. Allows scheduling long-running tasks in the background.</Description>
-    <Copyright>(c) 2012-2018 Daniel Crenna</Copyright>
+    <Copyright>© 2012-2018 Daniel Crenna</Copyright>
     <PackageProjectUrl>http://github.com/danielcrenna/reactive-pipe</PackageProjectUrl>
     <RepositoryUrl>http://github.com/danielcrenna/reactive-pipe</RepositoryUrl>
     <PackageLicenseUrl>https://github.com/danielcrenna/reactive-pipes/blob/master/LICENSE</PackageLicenseUrl>
@@ -14,12 +14,14 @@
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <AssemblyName>reactive.pipes.scheduled</AssemblyName>
     <RootNamespace>reactive.pipes.scheduled</RootNamespace>
+    <Authors>Daniel Crenna</Authors>
+    <Company />
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <PlatformTarget>x86</PlatformTarget>
-    <OutputPath>..\..\bin\lib\</OutputPath>
-    <DocumentationFile>..\..\bin\lib\netstandard2.0\reactive.pipes.scheduled.xml</DocumentationFile>
+    <OutputPath>bin\Release\netstandard2.0\</OutputPath>
+    <DocumentationFile></DocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
