@@ -38,21 +38,7 @@ namespace reactive.pipes
 		public static IEnumerable<Assembly> GetDefaultAssemblies()
 		{
 			var assemblies = new List<Assembly>();
-#if NETSTANDARD2_0
-			// http://www.michael-whelan.net/replacing-appdomain-in-dotnet-core/
-			
-			var dependencies = Microsoft.Extensions.DependencyModel.DependencyContext.Default.RuntimeLibraries;
-			foreach (var library in dependencies)
-			{
-				if (library.Name == ("Specify") || library.Dependencies.Any(d => d.Name.StartsWith("Specify")))
-				{
-					var assembly = Assembly.Load(new AssemblyName(library.Name));
-					assemblies.Add(assembly);
-				}
-			}
-#else
 			assemblies.AddRange(AppDomain.CurrentDomain.GetAssemblies());
-#endif
 			return assemblies;
 		}
 

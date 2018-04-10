@@ -14,7 +14,9 @@ namespace reactive.pipes
             _assemblies = assemblies;
         }
 
-        public Type FindTypeByName(string typeName)
+	    public DefaultTypeResolver() : this(AppDomain.CurrentDomain.GetAssemblies()) { }
+
+		public Type FindTypeByName(string typeName)
         {
             IEnumerable<Type> loadedTypes =
                 _assemblies.Where(a => a != typeof(object).GetTypeInfo().Assembly)
@@ -27,12 +29,12 @@ namespace reactive.pipes
 
         public IEnumerable<Type> GetAncestors(Type type)
         {
-            if (type?.GetTypeInfo().BaseType == null || type.GetTypeInfo().BaseType == typeof(object))
+	        foreach (var i in type?.GetTypeInfo()?.GetInterfaces() ?? Enumerable.Empty<Type>())
+		        yield return i;
+			
+			if (type?.GetTypeInfo().BaseType == null || type.GetTypeInfo().BaseType == typeof(object))
                 yield break;
-
-            foreach (var i in type.GetTypeInfo().GetInterfaces())
-                yield return i;
-
+           
             var baseType = type.GetTypeInfo().BaseType;
             while (baseType != null && baseType != typeof(object))
             {
