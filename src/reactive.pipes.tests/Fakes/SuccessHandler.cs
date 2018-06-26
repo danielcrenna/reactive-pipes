@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using reactive.pipes;
+using reactive.pipes.tests.Fakes;
 
 namespace reactive.tests.Fakes
 {

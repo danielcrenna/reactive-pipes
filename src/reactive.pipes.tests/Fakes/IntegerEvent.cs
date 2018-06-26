@@ -1,6 +1,6 @@
 using System;
 
-namespace reactive.tests.Fakes
+namespace reactive.pipes.tests.Fakes
 {
     public class IntegerEvent : IEquatable<IntegerEvent>
     {

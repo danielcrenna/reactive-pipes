@@ -1,4 +1,4 @@
-namespace reactive.tests.Fakes
+namespace reactive.pipes.tests.Fakes
 {
     public interface IEvent
     {

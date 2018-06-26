@@ -4,7 +4,7 @@ namespace reactive.pipes.Producers
     {
         RetryImmediately,
         Requeue,
-        Backlog,
+		Backlog,
         Undeliverable,
         Destroy
     }

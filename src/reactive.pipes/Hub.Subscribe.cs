@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reactive.Subjects;
 using System.Reflection;
@@ -51,13 +52,14 @@ namespace reactive.pipes
 
             const BindingFlags binding = BindingFlags.Instance | BindingFlags.NonPublic;
             MethodInfo subscribeByInterface = typeof(Hub).GetTypeInfo().GetMethod(nameof(SubscribeByInterface), binding);
+	        Debug.Assert(subscribeByInterface != null);
 
             // void Subscribe<T>(IConsume<T> consumer)
             foreach (var consumer in consumers)
             {
                 // SubscribeByInterface(consumer);
                 Type handlerType = consumer.GetTypeInfo().GetGenericArguments()[0];
-                subscribeByInterface.MakeGenericMethod(handlerType).Invoke(this, new[] { handler, onError ?? NoopErrorHandler });
+                subscribeByInterface?.MakeGenericMethod(handlerType).Invoke(this, new[] { handler, onError ?? NoopErrorHandler });
             }
         }
 

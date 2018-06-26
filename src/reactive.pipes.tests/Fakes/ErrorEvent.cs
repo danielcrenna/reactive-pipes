@@ -1,4 +1,6 @@
-namespace reactive.tests.Fakes
+using reactive.tests.Fakes;
+
+namespace reactive.pipes.tests.Fakes
 {
     public class ErrorEvent : BaseEvent
     {

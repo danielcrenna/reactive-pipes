@@ -1,7 +1,6 @@
 ﻿using System.Threading.Tasks;
-using reactive.pipes;
 
-namespace reactive.tests.Fakes
+namespace reactive.pipes.tests.Fakes
 {
     public class FailingHandler : IConsume<IEvent>
     {

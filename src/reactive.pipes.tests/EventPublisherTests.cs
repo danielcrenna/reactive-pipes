@@ -1,5 +1,6 @@
 using System;
 using reactive.pipes;
+using reactive.pipes.tests.Fakes;
 using reactive.tests.Fakes;
 using Xunit;
 

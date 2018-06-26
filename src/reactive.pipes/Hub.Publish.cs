@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Reflection;
 using System.Threading.Tasks;
 
@@ -14,9 +15,8 @@ namespace reactive.pipes
 
         public bool Publish(object message)
         {
-            Type type = message.GetType();
-            Func<object, bool> dispatcher = _byTypeDispatch[type] as Func<object, bool>;
-            if (dispatcher == null)
+            var type = message.GetType();
+	        if (!(_byTypeDispatch[type] is Func<object, bool> dispatcher))
             {
                 dispatcher = BuildByTypeDispatcher(type);
                 _byTypeDispatch[type] = dispatcher;
@@ -27,41 +27,41 @@ namespace reactive.pipes
         private Func<object, bool> BuildByTypeDispatcher(Type superType)
         {
             const BindingFlags binding = BindingFlags.NonPublic | BindingFlags.Instance;
-            MethodInfo publishTyped = typeof(Hub).GetTypeInfo().GetMethod(nameof(PublishTyped), binding);
+            var publishTyped = typeof(Hub).GetTypeInfo().GetMethod(nameof(PublishTyped), binding);
+	        Debug.Assert(publishTyped != null);
 
-            Dictionary<Type, MethodInfo> dispatchers = new Dictionary<Type, MethodInfo>
+            var dispatchers = new Dictionary<Type, MethodInfo>
             {
-                {superType, publishTyped.MakeGenericMethod(superType)}
+                {superType, publishTyped?.MakeGenericMethod(superType)}
             };
 
             foreach (var childType in _typeResolver.GetAncestors(superType))
-                dispatchers.Add(childType, publishTyped.MakeGenericMethod(childType));
+                dispatchers.Add(childType, publishTyped?.MakeGenericMethod(childType));
 
-            Func<object, bool> function = @event =>
-            {
-                bool result = true;
-                foreach (var dispatcher in dispatchers)
-                {
-                    MethodInfo method = dispatcher.Value;
-                    bool handled = (bool)method.Invoke(this, new[] { @event });
-                    result &= handled;
-                }
-                return result;
-            };
+	        bool Dispatch(object @event)
+	        {
+		        var result = true;
+		        foreach (var dispatcher in dispatchers)
+		        {
+			        var method = dispatcher.Value;
+			        var handled = (bool) method.Invoke(this, new[] {@event});
+			        result &= handled;
+		        }
+		        return result;
+	        }
 
-            return function;
+	        return Dispatch;
         }
         
         private bool PublishTyped<T>(T @event)
         {
-            IDisposable subscription;
-            Type subscriptionType = typeof(T);
+	        var subscriptionType = typeof(T);
 
-            if (_subscriptions.TryGetValue(subscriptionType, out subscription))
+            if (_subscriptions.TryGetValue(subscriptionType, out var subscription))
             {
                 lock (subscription)
                 {
-                    WrappedSubject<T> subject = (WrappedSubject<T>)subscription;
+                    var subject = (WrappedSubject<T>)subscription;
                     try
                     {
                         subject.Outcomes.Clear();

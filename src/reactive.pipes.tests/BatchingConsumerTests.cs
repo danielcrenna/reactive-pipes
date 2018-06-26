@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using reactive.pipes.Consumers;
+using reactive.pipes.tests.Fakes;
 using reactive.tests.Fakes;
 using Xunit;
 

@@ -138,8 +138,8 @@ namespace reactive.pipes.Extensions
             private readonly Timer _exitTimer;
             private bool _isDisposed;
 
-            public int Occurrences { get; private set; }
-            public int TimeUnitMilliseconds { get; private set; }
+            public int Occurrences { get; }
+            public int TimeUnitMilliseconds { get; }
 
             public Throttle(int occurrences, TimeSpan timeUnit)
             {
@@ -225,12 +225,7 @@ namespace reactive.pipes.Extensions
 
             internal BlockingCollectionPartitioner(BlockingCollection<T> collection)
             {
-                if (collection == null)
-                {
-                    throw new ArgumentNullException(nameof(collection));
-                }
-
-                _collection = collection;
+	            _collection = collection ?? throw new ArgumentNullException(nameof(collection));
             }
 
             public override bool SupportsDynamicPartitions => true;

@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
-using reactive.pipes;
+using reactive.tests.Fakes;
 
-namespace reactive.tests.Fakes
+namespace reactive.pipes.tests.Fakes
 {
     public class NotErroringHandler : IConsume<ErrorEvent>
     {

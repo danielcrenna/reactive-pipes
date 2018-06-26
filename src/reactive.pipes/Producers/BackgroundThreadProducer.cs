@@ -3,10 +3,13 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reactive.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using reactive.pipes.Consumers;
 using reactive.pipes.Extensions;
+using reactive.pipes.Helpers;
 
 namespace reactive.pipes.Producers
 {
@@ -15,7 +18,7 @@ namespace reactive.pipes.Producers
     /// <remarks>
     /// - The production queue is seeded explicitly by callers, or by subscribing to an observable
     /// - The producer-consumer problem requires a shared buffer; you must give full control of the buffer to the producer, and pass it to any consumers
-    /// - Backlogged and undeliverable events are managed by other consumers you can attach; by default, all special case event handling is sent into the abyss
+    /// - Backlogged and undeliverable messages are managed by other consumers you can attach; by default, all special case message handling is sent into the abyss
     /// </remarks> 
     /// </summary>
     /// <typeparam name="T"></typeparam>
@@ -25,15 +28,21 @@ namespace reactive.pipes.Producers
         private int _undelivered;
 
         private Task _background;
-        private CancellationTokenSource _cancel;
+
+		private CancellationTokenSource _cancel;
         private readonly SemaphoreSlim _empty;
         private readonly Stopwatch _uptime;
 
         private IConsume<T> _consumer;
         private IConsume<T> _backlogConsumer;
         private IConsume<T> _undeliverableConsumer;
+	    private IConsume<Exception> _errorConsumer;
 
-        public int MaxDegreeOfParallelism { get; set; }
+		private readonly bool _internal;
+		private BlockingCollection<T> _buffer;
+	    private readonly IDictionary<ulong, int> _attempts = new ConcurrentDictionary<ulong, int>();
+
+	    public int MaxDegreeOfParallelism { get; set; }
 
         public TimeSpan Uptime => _uptime.Elapsed;
 
@@ -41,7 +50,7 @@ namespace reactive.pipes.Producers
 
         public double Rate => _sent / _uptime.Elapsed.TotalSeconds;
 
-        public int Queued => Buffer.Count;
+	    public int Queued => _buffer.Count;
 
         public int Undeliverable => _undelivered;
 
@@ -55,9 +64,7 @@ namespace reactive.pipes.Producers
 
         public RateLimitPolicy RateLimitPolicy { get; }
 
-        public BlockingCollection<T> Buffer { get; private set; }
-
-        public BackgroundThreadProducer(IObservable<T> source) : this()
+	    public BackgroundThreadProducer(IObservable<T> source) : this()
         {
             Produce(source);
 
@@ -65,24 +72,28 @@ namespace reactive.pipes.Producers
             OnStopped = () => { };
         }
 
-        public BackgroundThreadProducer() : this(new BlockingCollection<T>()) { }
+        public BackgroundThreadProducer() : this(new BlockingCollection<T>(), true) { }
 
-        public BackgroundThreadProducer(int capacity) : this(new BlockingCollection<T>(capacity)) { }
+        public BackgroundThreadProducer(int capacity) : this(new BlockingCollection<T>(capacity), true) { }
 
-        public BackgroundThreadProducer(IProducerConsumerCollection<T> source) : this(new BlockingCollection<T>(source)) { }
+        public BackgroundThreadProducer(IProducerConsumerCollection<T> source) : this(new BlockingCollection<T>(source), true) { }
 
-        public BackgroundThreadProducer(IProducerConsumerCollection<T> source, int capacity) : this(new BlockingCollection<T>(source, capacity)) { }
+        public BackgroundThreadProducer(IProducerConsumerCollection<T> source, int capacity) : this(new BlockingCollection<T>(source, capacity), true) { }
 
-        public BackgroundThreadProducer(BlockingCollection<T> source)
+	    public BackgroundThreadProducer(BlockingCollection<T> source) : this(source, false) { }
+
+	    BackgroundThreadProducer(BlockingCollection<T> source, bool @internal = true)
         {
-            Buffer = source;
+            _buffer = source;
+	        _internal = @internal;
+
             MaxDegreeOfParallelism = 1;
 
             _uptime = new Stopwatch();
             _cancel = new CancellationTokenSource();
             _empty = new SemaphoreSlim(1);
 
-            RetryPolicy = new RetryPolicy();
+			RetryPolicy = new RetryPolicy();
             RateLimitPolicy = new RateLimitPolicy();
 
             var devNull = new ActionConsumer<T>(@event => { });
@@ -92,31 +103,32 @@ namespace reactive.pipes.Producers
             _undeliverableConsumer = devNull;
         }
 
-        public async void Produce(T @event)
+        public async Task Produce(T message)
         {
-            if (Buffer.IsAddingCompleted)
+            if (_buffer.IsAddingCompleted)
             {
-                // If we added to the backlog queue while stopping, then observables could fill it after a flush 
-                await HandleBacklog(@event);
+                // If we added to the backlog queue while stopping,
+                // then observables could fill it after a flush 
+                await HandleBacklog(message);
             }
             else
             {
-                Buffer.Add(@event);
+                _buffer.Add(message);
             }
         }
 
-        public void Produce(IList<T> events)
+	    public async Task Produce(IList<T> messages)
         {
-            if (events.Count == 0)
+            if (messages.Count == 0)
                 return;
 
-            foreach (var @event in events)
-                Produce(@event);
+            foreach (var @event in messages)
+                await Produce(@event);
         }
 
         public void Produce(IEnumerable<T> stream, TimeSpan? interval = null)
         {
-            IObservable<T> projection = new Func<IEnumerable<T>>(() => stream).AsContinuousObservable();
+            var projection = new Func<IEnumerable<T>>(() => stream).AsContinuousObservable();
 
             if (interval.HasValue)
                 Produce(projection.Buffer(interval.Value));
@@ -126,41 +138,57 @@ namespace reactive.pipes.Producers
 
         public void Produce(Func<T> func, TimeSpan? interval = null)
         {
-            if (Buffer.IsAddingCompleted)
+            if (_buffer.IsAddingCompleted)
                 throw new InvalidOperationException("You cannot subscribe the buffer while stopping");
 
-            func.AsContinuousObservable(interval).Subscribe(Produce, exception => { }, () => { }, _cancel.Token);
+            func.AsContinuousObservable(interval).Subscribe(
+	            onNext: async x => { await Produce(x); },
+	            onError: async e => { if(_errorConsumer != null) await _errorConsumer?.HandleAsync(e); },
+				onCompleted: () => { },
+	            token: _cancel.Token);
         }
 
         public void Produce(IObservable<T> observable)
         {
-            if (Buffer.IsAddingCompleted)
+            if (_buffer.IsAddingCompleted)
             {
                 throw new InvalidOperationException("You cannot subscribe the buffer while stopping");
             }
 
-            observable.Subscribe(Produce, exception => { }, () => { }, _cancel.Token);
-        }
+	        observable.Subscribe(
+				onNext: async x => { await Produce(x); },
+				onError: async e => { if (_errorConsumer != null) await _errorConsumer?.HandleAsync(e); },
+				onCompleted: () => { },
+				token: _cancel.Token);
+		}
 
         public void Produce(IObservable<IList<T>> observable)
         {
-            if (Buffer.IsAddingCompleted)
+            if (_buffer.IsAddingCompleted)
             {
                 throw new InvalidOperationException("You cannot subscribe the buffer while stopping");
             }
 
-            observable.Subscribe(Produce, exception => { }, () => { }, _cancel.Token);
-        }
+            observable.Subscribe(
+				onNext: async x => { await Produce(x); },
+	            onError: async e => { if (_errorConsumer != null) await _errorConsumer?.HandleAsync(e); },
+	            onCompleted: () => { },
+	            token: _cancel.Token);
+		}
 
         public void Produce(IObservable<IObservable<T>> observable)
         {
-            if (Buffer.IsAddingCompleted)
+            if (_buffer.IsAddingCompleted)
             {
                 throw new InvalidOperationException("You cannot subscribe the buffer while stopping");
             }
 
-            observable.Subscribe(Produce, exception => { }, () => { }, _cancel.Token);
-        }
+            observable.Subscribe(
+				onNext: Produce,
+	            onError: async e => { if (_errorConsumer != null) await _errorConsumer?.HandleAsync(e); },
+	            onCompleted: () => { },
+	            token: _cancel.Token);
+		}
 
         public void Attach(IConsume<T> consumer)
         {
@@ -172,12 +200,22 @@ namespace reactive.pipes.Producers
             _consumer = new ActionConsumer<T>(@delegate);
         }
 
+		/// <summary>
+		/// This consumer is invoked when the producer is stopped immediately or otherwise interrupted, as such on disposal.
+		/// Any messages still waiting to be delivered are flushed to this consumer. If the consumer reports a failure, then the
+		/// messages are swept to the undeliverable consumer. 
+		/// </summary>
         public void AttachBacklog(IConsume<T> consumer)
         {
             _backlogConsumer = consumer;
         }
 
-        public void AttachBacklog(Action<T> @delegate)
+	    /// <summary>
+	    /// This consumer is invoked when the producer is stopped immediately or otherwise interrupted, as such on disposal.
+	    /// Any messages still waiting to be delivered are flushed to this consumer. If the consumer reports a failure, then the
+	    /// messages are swept to the undeliverable consumer. 
+	    /// </summary>
+		public void AttachBacklog(Action<T> @delegate)
         {
             _backlogConsumer = new ActionConsumer<T>(@delegate);
         }
@@ -192,7 +230,12 @@ namespace reactive.pipes.Producers
             _undeliverableConsumer = new ActionConsumer<T>(@delegate);
         }
 
-        public void Start(bool immediate = false)
+	    public void AttachError(Action<Exception> onError)
+	    {
+			_errorConsumer = new ActionConsumer<Exception>(onError);
+	    }
+
+        public async Task Start(bool immediate = false)
         {
             if (Running)
             {
@@ -201,57 +244,102 @@ namespace reactive.pipes.Producers
 
             if (_background != null)
             {
-                Stop(immediate);
+                await Stop(immediate);
                 _background = null;
             }
 
-            RequisitionBackgroundTask();
+            RequisitionBackgroundTasks();
 
             _uptime.Start();
             Running = true;
         }
 
-        public void Stop(bool immediate = false)
+		/// <summary>Stops accepting new messages for immediate delivery. </summary>
+		/// <param name="immediate">If <code>true</code>, the service immediately redirects all messages in the queue to the backlog; emails that are queued after a stop call are always sent to the backlog. Otherwise, all queued messages are sent before closing the producer to additional messages.</param>
+		public async Task Stop(bool immediate = false)
         {
             if (!Running)
                 return;
 
-            Buffer.CompleteAdding();
+            _buffer.CompleteAdding();
 
             if (!immediate)
-                WaitForEmptyBuffer();
+                await WaitForEmptyBuffer();
             else
-                TransferBufferToBacklog();
+                await FlushBacklog();
 
-            ResetToInitialState();
-        }
+			Running = false;
+	        _uptime.Stop();
+	        if (_internal)
+		        _buffer = new BlockingCollection<T>();
+		}
 
-        private void WaitForEmptyBuffer()
+	    private async Task WaitForEmptyBuffer()
         {
-            _cancel.Cancel();
+			_empty.Wait();
+	        while (!_buffer.IsCompleted)
+		        await Task.Delay(10);
+	        _empty.Release();
+
+			_cancel.Cancel();
             _cancel.Token.WaitHandle.WaitOne();
-            WithEmptyWait(() => { /* Wait for cancellation to empty the buffer to the backlogging consumer */ });
         }
 
-        private void ResetToInitialState()
-        {
-            Running = false;
-            Buffer = new BlockingCollection<T>();
-        }
+	    private async Task HandleBacklog(T message)
+	    {
+		    if (_backlogConsumer != null)
+		    {
+			    if (_errorConsumer != null)
+			    {
+				    try
+				    {
+					    if (!await _backlogConsumer.HandleAsync(message))
+					    {
+						    await HandleUndeliverable(message);
+					    }
+					}
+				    catch (Exception e)
+				    {
+						await _errorConsumer.HandleAsync(e);
+					    await HandleUndeliverable(message);
+					}
+				}
+			    else
+			    {
+				    if (!await _backlogConsumer.HandleAsync(message))
+				    {
+					    await HandleUndeliverable(message);
+				    }
+			    }
+		    }
+	    }
 
-        private async Task HandleBacklog(T @event)
+		private async Task HandleUndeliverable(T message)
         {
-            if (!await _backlogConsumer.HandleAsync(@event))
-            {
-                await HandleUndeliverable(@event);
-            }
-        }
-
-        private async Task HandleUndeliverable(T @event)
-        {
-            await _undeliverableConsumer.HandleAsync(@event);
-
-            Interlocked.Increment(ref _undelivered);
+			if(_undeliverableConsumer != null)
+			{
+				if (_errorConsumer != null)
+				{
+					try
+					{
+						if (await _undeliverableConsumer.HandleAsync(message))
+						{
+							Interlocked.Increment(ref _undelivered);
+						}
+					}
+					catch (Exception e)
+					{
+						await _errorConsumer.HandleAsync(e);
+					}
+				}
+				else
+				{
+					if (await _undeliverableConsumer.HandleAsync(message))
+					{
+						Interlocked.Increment(ref _undelivered);
+					}
+				}
+			}
         }
 
         public void Dispose()
@@ -269,33 +357,31 @@ namespace reactive.pipes.Producers
 
             if (Running)
             {
-                Stop();
+                Stop().RunSynchronously();
             }
 
+	        _background?.Dispose();
             _background = null;
+	        _cancel?.Dispose();
+	        _cancel = null;
+		}
 
-            if (_cancel != null)
-            {
-                _cancel.Dispose();
-                _cancel = null;
-            }
+        public async Task Restart(bool immediate = false)
+        {
+            await Stop(immediate);
+
+            await Start(immediate);
         }
 
-        public void Restart()
+        private void RequisitionBackgroundTasks()
         {
-            Stop();
-            Start();
-        }
-
-        private void RequisitionBackgroundTask()
-        {
-            ParallelOptions options = new ParallelOptions
+            var options = new ParallelOptions
             {
                 MaxDegreeOfParallelism = MaxDegreeOfParallelism,
                 CancellationToken = _cancel.Token
             };
 
-            _background = Task.Run(() =>
+            _background = Task.Run(async () =>
             {
                 try
                 {
@@ -303,10 +389,10 @@ namespace reactive.pipes.Producers
                 }
                 catch (OperationCanceledException)
                 {
-                    TransferBufferToBacklog();
+                    await FlushBacklog();
                 }
             });
-        }
+		}
 
         private BlockingCollection<T> GetProductionSource()
         {
@@ -314,91 +400,116 @@ namespace reactive.pipes.Producers
             if (RateLimitPolicy.Enabled)
             {
                 // Convert the outgoing blocking collection into a rate limited observable, then feed a new blocking queue with it
-                var sequence = Buffer.AsRateLimitedObservable(RateLimitPolicy.Occurrences, RateLimitPolicy.TimeUnit, _cancel.Token);
+                var sequence = _buffer.AsRateLimitedObservable(RateLimitPolicy.Occurrences, RateLimitPolicy.TimeUnit, _cancel.Token);
                 source = new BlockingCollection<T>();
                 sequence.Subscribe(source.Add, exception => { }, () => { });
             }
             else
             {
-                source = Buffer;
+                source = _buffer;
             }
             return source;
         }
 
-        private async void TransferBufferToBacklog()
+        private async Task FlushBacklog()
         {
             _empty.Wait();
-            while (!Buffer.IsCompleted)
+            while (!_buffer.IsCompleted)
             {
-                await HandleBacklog(Buffer.Take());
+				if(_buffer.TryTake(out var message, -1, _cancel.Token))
+					await HandleBacklog(message);
             }
             _empty.Release();
         }
 
         private void ProduceOn(BlockingCollection<T> source, ParallelOptions options)
         {
-            Partitioner<T> partitioner = source.GetConsumingPartitioner();
+            var partitioner = source.GetConsumingPartitioner();
 
-            Parallel.ForEach(partitioner, options, (@event, state) => ProductionCycle(options, @event, state));
+            Parallel.ForEach(partitioner, options, async (@event, state) => await ProductionCycle(options, @event, state));
         }
 
-        private readonly IDictionary<int, int> _attempts = new ConcurrentDictionary<int, int>();
-
-        private async void ProductionCycle(ParallelOptions options, T @event, ParallelLoopState state)
+        private async Task ProductionCycle(ParallelOptions options, T message, ParallelLoopState state)
         {
             if (state.ShouldExitCurrentIteration)
             {
-                await HandleBacklog(@event);
+                await HandleBacklog(message);
                 return;
             }
+			
+	        if (_errorConsumer != null)
+	        {
+		        try
+		        {
+			        if (!await _consumer.HandleAsync(message))
+			        {
+				        await HandleUnsuccessfulDelivery(options, message, state);
+				        return;
+			        }
+				}
+		        catch (Exception e)
+		        {
+			        await _errorConsumer.HandleAsync(e);
+					await HandleUnsuccessfulDelivery(options, message, state);
+			        return;
+		        }
+			}
+	        else
+	        {
+		        if (!await _consumer.HandleAsync(message))
+		        {
+			        await HandleUnsuccessfulDelivery(options, message, state);
+			        return;
+		        }
+	        }
 
-            if (!await _consumer.HandleAsync(@event))
-            {
-                HandleUnsuccessfulDelivery(options, @event, state);
-            }
-
-            Interlocked.Increment(ref _sent);
-            options.CancellationToken.ThrowIfCancellationRequested();
+			Interlocked.Increment(ref _sent);
+			options.CancellationToken.ThrowIfCancellationRequested();
         }
 
+		private async Task HandleUnsuccessfulDelivery(ParallelOptions options, T message, ParallelLoopState state)
+		{
+			var hash = HashMessage(message);
+			var attempts = IncrementAttempts(hash);
+			var decision = RetryPolicy?.DecideOn(message, attempts) ?? RetryDecision.Undeliverable;
 
-        private async void HandleUnsuccessfulDelivery(ParallelOptions options, T @event, ParallelLoopState state)
+			switch (decision)
+			{
+				case RetryDecision.RetryImmediately:
+					await ProductionCycle(options, message, state);
+					break;
+				case RetryDecision.Requeue:
+					if (!_buffer.IsAddingCompleted && RetryPolicy?.RequeueInterval != null)
+						Produce(Observable.Return(message).Delay(RetryPolicy.RequeueInterval(attempts)));
+					else
+						await Produce(message);
+					break;
+				case RetryDecision.Backlog:
+					_attempts.Remove(hash);
+					await HandleBacklog(message);
+					break;
+				case RetryDecision.Undeliverable:
+					_attempts.Remove(hash);
+					await HandleUndeliverable(message);
+					break;
+				case RetryDecision.Destroy:
+					_attempts.Remove(hash);
+					break;
+				default:
+					throw new ArgumentOutOfRangeException();
+			}
+		}
+
+		public Func<T, ulong> HashFunction => x => XXHash.XXH64(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(x)));
+			
+	    private ulong HashMessage(T message)
+	    {
+		    return HashFunction?.Invoke(message) ?? (ulong) message.GetHashCode();
+	    }
+		
+	    private int IncrementAttempts(ulong hash)
         {
-            if (RetryPolicy != null)
-            {
-                var decision = RetryPolicy.DecideOn(@event, GetAttempts(@event));
-
-                switch (decision)
-                {
-                    case RetryDecision.RetryImmediately:
-                        ProductionCycle(options, @event, state);
-                        break;
-                    case RetryDecision.Requeue:
-                        Buffer.Add(@event);
-                        break;
-                    case RetryDecision.Backlog:
-                        await HandleBacklog(@event);
-                        break;
-                    case RetryDecision.Undeliverable:
-                        await HandleUndeliverable(@event);
-                        break;
-                    case RetryDecision.Destroy:
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-            }
-            else
-            {
-                Buffer.Add(@event);
-            }
-        }
-
-        private int GetAttempts(T @event)
-        {
-            int attempts;
-            var hash = @event.GetHashCode();
-            if (!_attempts.TryGetValue(hash, out attempts))
+	        if (!_attempts.TryGetValue(hash, out var attempts))
             {
                 _attempts.Add(hash, 1);
             }
@@ -408,13 +519,6 @@ namespace reactive.pipes.Producers
             }
             attempts = _attempts[hash];
             return attempts;
-        }
-
-        private void WithEmptyWait(Action closure)
-        {
-            _empty.Wait();
-            closure();
-            _empty.Release();
         }
     }
 }

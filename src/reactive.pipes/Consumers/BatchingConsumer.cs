@@ -100,6 +100,7 @@ namespace reactive.pipes.Consumers
 
         private async Task HandleUndeliverable(T @event)
         {
+	        if (_undeliverableConsumer != null)
             await _undeliverableConsumer.HandleAsync(@event);
         }
     }

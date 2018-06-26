@@ -1,8 +1,7 @@
-﻿using reactive.pipes;
-using System;
+﻿using System;
 using System.Threading.Tasks;
 
-namespace reactive.tests.Fakes
+namespace reactive.pipes.tests.Fakes
 {
     public class ThrowingHandler : IConsume<IEvent>
     {

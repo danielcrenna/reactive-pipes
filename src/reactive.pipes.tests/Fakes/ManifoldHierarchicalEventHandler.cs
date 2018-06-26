@@ -1,9 +1,8 @@
 using System;
-using System.Data;
 using System.Threading.Tasks;
-using reactive.pipes;
+using reactive.tests.Fakes;
 
-namespace reactive.tests.Fakes
+namespace reactive.pipes.tests.Fakes
 {
     public class ManifoldHierarchicalEventHandler : IConsume<BaseEvent>, IConsume<InheritedEvent>, IConsume<ErrorEvent>, IConsume<IEvent>
     {
