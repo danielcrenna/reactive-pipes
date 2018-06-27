@@ -6,6 +6,7 @@ namespace reactive.pipes.Producers
 {
     public class RetryPolicy
     {
+	    RetryDecision _default = RetryDecision.Requeue;
         private readonly IDictionary<int, RetryDecision> _rules;
 
         public RetryPolicy()
@@ -15,6 +16,11 @@ namespace reactive.pipes.Producers
 		}
 
 	    public Func<int, TimeSpan> RequeueInterval { get; set; }
+
+	    public void Default(RetryDecision action)
+	    {
+			_default = action;
+	    }
 
 		public void After(int tries, RetryDecision action)
         {
@@ -32,7 +38,7 @@ namespace reactive.pipes.Producers
             {
                 return _rules[threshold];
             }
-            return RetryDecision.Requeue;
+	        return _default;
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using reactive.pipes.Consumers;
 using reactive.pipes.Producers;
 using reactive.pipes.tests.Fakes;
 using Xunit;
@@ -118,7 +119,7 @@ namespace reactive.pipes.tests
 
 			Assert.Equal(expected, producer.Sent);
 			Assert.True(Math.Abs(producer.Rate - producer.RateLimitPolicy.Occurrences) < expected * 1.25f);
-			
+
 			_console.WriteLine($"Delivered: {producer.Sent}");
 			_console.WriteLine($"Uptime: {producer.Uptime}");
 			_console.WriteLine($"Delivery rate: {producer.Rate} msgs / second");
@@ -129,8 +130,11 @@ namespace reactive.pipes.tests
 		{
 			const int expected = 1000;
 			var actual = 0;
-			var producer = new BackgroundThreadProducer<BaseEvent> { MaxDegreeOfParallelism = 10 };
-			producer.AttachError(x => { /* compensating for not using an intermediary like Hub, which handles exceptions */});
+			var producer = new BackgroundThreadProducer<BaseEvent> {MaxDegreeOfParallelism = 10};
+			producer.AttachError(x =>
+			{
+				/* compensating for not using an intermediary like Hub, which handles exceptions */
+			});
 			producer.AttachUndeliverable(new Action<BaseEvent>(x => Interlocked.Increment(ref actual)));
 			producer.Attach(new ThrowingHandler());
 
@@ -138,7 +142,7 @@ namespace reactive.pipes.tests
 			producer.RetryPolicy.After(1, RetryDecision.Undeliverable);
 
 			for (var i = 0; i < expected; i++)
-				await producer.Produce(new BaseEvent { Id = i });
+				await producer.Produce(new BaseEvent {Id = i});
 			await producer.Start();
 			await producer.Stop();
 		}
@@ -149,19 +153,26 @@ namespace reactive.pipes.tests
 			const int expected = 1;
 			const int maxTries = 3;
 
-			int actual = 0;
+			var actual = 0;
 
-			var producer = new BackgroundThreadProducer<BaseEvent> { MaxDegreeOfParallelism = 10 };
-
-			producer.AttachError(x => { /* compensating for not using an intermediary like Hub, which handles exceptions */});
+			var producer = new BackgroundThreadProducer<BaseEvent> {MaxDegreeOfParallelism = 10};
+			producer.AttachError(x =>
+			{
+				/* compensating for not using an intermediary like Hub, which handles exceptions */
+			});
 			producer.Attach(new ThrowingHandler());
-			producer.AttachUndeliverable(new Action<BaseEvent>(x => Interlocked.Increment(ref actual)));
+			producer.AttachUndeliverable(x =>
+			{
+				_console.WriteLine("abandoned message after " + x.Attempts + " attempts");
+				Assert.Equal(maxTries, x.Attempts);
+				Interlocked.Increment(ref actual);
+			});
 
 			producer.RetryPolicy = new RetryPolicy();
 			producer.RetryPolicy.After(maxTries, RetryDecision.Undeliverable);
-			
+
 			for (var i = 0; i < expected; i++)
-				await producer.Produce(new BaseEvent { Id = i });
+				await producer.Produce(new BaseEvent {Id = i});
 			await producer.Start();
 
 			while (producer.Undeliverable < expected)
@@ -169,6 +180,102 @@ namespace reactive.pipes.tests
 			await producer.Stop();
 
 			Assert.Equal(expected, actual);
+		}
+
+		[Fact]
+		public async Task Can_perform_ack_nack_pattern()
+		{
+			var random = new Random();
+
+			const int expected = 100;
+			var actual = 0; // counting finalizations
+			
+			var retryPolicy = new RetryPolicy();
+			retryPolicy.Default(RetryDecision.Backlog); // use external requeuing
+			retryPolicy.After(3, RetryDecision.Undeliverable);
+
+			//
+			// ACK/NACK:
+			// =========
+			// 1. The main thread pushes messages, while two consumer producers pull messages.
+			// 2. If the message fails (50% probability), it is returned to the push thread.
+			//    The number of attempts are retained when the message is relayed. This way
+			//    the retry policy is enforced across all consumers, provided each consumer
+			//    implements the same policy.
+
+			var producer = new BackgroundThreadProducer<BaseEvent> { MaxDegreeOfParallelism = 1 };
+			var consumer1 = new BackgroundThreadProducer<BaseEvent> { MaxDegreeOfParallelism = 1 };
+			var consumer2 = new BackgroundThreadProducer<BaseEvent> { MaxDegreeOfParallelism = 1 };
+
+			//
+			// Consumer 1:
+			consumer1.AttachUndeliverable(x =>
+			{
+				_console.WriteLine("[consumer2] message " + x.Message.Id + " abandoned after " + x.Attempts + " attempt(s)");
+				Interlocked.Increment(ref actual); // undelivered
+			});
+			consumer1.AttachBacklog(async x =>
+			{
+				_console.WriteLine("[consumer1] message " + x.Message.Id + " requeued");
+				await SendToRandomConsumer(x); // passes context data to other consumers
+			});
+			consumer1.Attach(new ActionConsumer<BaseEvent>(x =>
+			{
+				if (NextBool(random))
+					throw new Exception();
+				Interlocked.Increment(ref actual); // sent
+			}));
+			consumer1.RetryPolicy = retryPolicy;
+			await consumer1.Start();
+
+			//
+			// Consumer 2:
+			consumer2.AttachUndeliverable(x =>
+			{
+				_console.WriteLine("[consumer2] message " + x.Message.Id + " abandoned after " + x.Attempts + " attempt(s)");
+				Interlocked.Increment(ref actual); // undelivered
+			});
+			consumer2.AttachBacklog(async x =>
+			{
+				_console.WriteLine("[consumer2] message " + x.Message.Id + " requeued");
+				await SendToRandomConsumer(x); // passes context data to other consumers
+			});
+			consumer2.Attach(new ActionConsumer<BaseEvent>(x =>
+			{
+				if (NextBool(random))
+					throw new Exception();
+				Interlocked.Increment(ref actual); // sent
+			}));
+			consumer2.RetryPolicy = retryPolicy;
+			await consumer2.Start();
+
+			async Task SendToRandomConsumer(QueuedMessage<BaseEvent> x)
+			{
+				if (NextBool(random))
+				{
+					_console.WriteLine($"message {x.Message.Id} sent to consumer1 ({x.Attempts} attempt(s))");
+					await consumer1.Produce(x);
+				}
+				else
+				{
+					_console.WriteLine($"message {x.Message.Id} sent to consumer2 ({x.Attempts} attempt(s))");
+					await consumer2.Produce(x);
+				}
+			}
+
+			//
+			// Producer:
+			for (var i = 0; i < expected; i++)
+				await producer.Produce(new BaseEvent { Id = i });
+			producer.Attach(async x => { await SendToRandomConsumer(x); });
+			await producer.Start(); // start with a full buffer
+			while (actual != expected) // wait for all finalizations
+				await Task.Delay(10);
+		}
+
+		public static bool NextBool(Random r, int p = 50)
+		{
+			return r.NextDouble() < p / 100.0;
 		}
 	}
 }

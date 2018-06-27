@@ -130,10 +130,9 @@ namespace reactive.pipes.Producers
 		    }
 		    else
 		    {
-			    _buffer.Add(message.Message);
-
 			    if (RetryPolicy != null)
-					_attempts[HashMessage(message.Message)] = message.Attempts;
+				    _attempts[HashMessage(message.Message)] = message.Attempts;
+				_buffer.Add(message.Message);
 			}
 	    }
 
