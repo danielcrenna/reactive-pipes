@@ -2,14 +2,14 @@
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net461;net452</TargetFrameworks>
-    <Version>1.3.11</Version>
+    <Version>1.4.0</Version>
     <Description>A scheduled background worker for reactive.pipes. Allows scheduling long-running tasks in the background.</Description>
     <Copyright>© 2012-2018 Daniel Crenna</Copyright>
     <PackageProjectUrl>http://github.com/danielcrenna/reactive-pipes</PackageProjectUrl>
     <RepositoryUrl>http://github.com/danielcrenna/reactive-pipes</RepositoryUrl>
     <PackageLicenseUrl>https://github.com/danielcrenna/reactive-pipes/blob/master/LICENSE</PackageLicenseUrl>
     <PackageTags>distributed scheduled background jobs</PackageTags>
-    <PackageReleaseNotes>- v1.3.11 fix resolver ordering bug</PackageReleaseNotes>
+    <PackageReleaseNotes>- v1.4.0 improved background production and external queuing patterns</PackageReleaseNotes>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <AssemblyName>reactive.pipes.scheduled</AssemblyName>

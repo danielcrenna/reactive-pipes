@@ -10,8 +10,8 @@
     <PackageLicenseUrl>https://github.com/danielcrenna/reactive-pipes/blob/master/LICENSE</PackageLicenseUrl>
     <PackageProjectUrl>http://github.com/danielcrenna/reactive-pipes</PackageProjectUrl>
     <RepositoryUrl>http://github.com/danielcrenna/reactive-pipes</RepositoryUrl>
-    <PackageReleaseNotes>- v1.3.11 fix resolver ordering bug</PackageReleaseNotes>
-    <Version>1.3.11</Version>
+    <PackageReleaseNotes>- v1.4.0 improved background production and external queuing patterns</PackageReleaseNotes>
+    <Version>1.4.0</Version>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Authors>Daniel Crenna</Authors>
