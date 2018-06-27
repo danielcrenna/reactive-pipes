@@ -11,7 +11,6 @@ namespace reactive.pipes.Producers
         public RetryPolicy()
         {
             _rules = new Dictionary<int, RetryDecision>();
-			After(10, RetryDecision.Undeliverable);
 			RequeueInterval = a => TimeSpan.FromSeconds(5 + Math.Pow(a, 4));
 		}
 
@@ -29,7 +28,7 @@ namespace reactive.pipes.Producers
 
         public RetryDecision DecideOn<T>(T @event, int attempts)
         {
-            foreach (var threshold in _rules.Keys.OrderBy(k => k).Where(threshold => attempts >= threshold))
+			foreach (var threshold in _rules.Keys.OrderBy(k => k).Where(threshold => attempts >= threshold))
             {
                 return _rules[threshold];
             }

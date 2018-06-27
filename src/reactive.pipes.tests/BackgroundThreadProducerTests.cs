@@ -50,9 +50,12 @@ namespace reactive.pipes.tests
 
 			// we have ten background workers trying to consume messages from an internal buffer
 			var producer = new BackgroundThreadProducer<BaseEvent> {MaxDegreeOfParallelism = 10};
-
-			producer.AttachBacklog(x => Interlocked.Increment(ref backlogged));
+			producer.AttachBacklog(new Action<BaseEvent>(x => Interlocked.Increment(ref backlogged)));
 			producer.Attach(x => { Interlocked.Increment(ref actual); });
+
+			producer.RetryPolicy = new RetryPolicy();
+			producer.RetryPolicy.After(1, RetryDecision.Backlog);
+
 			await producer.Start();
 
 			// while those workers are waiting for new messages, we feed the production
@@ -100,9 +103,12 @@ namespace reactive.pipes.tests
 			var producer = new BackgroundThreadProducer<BaseEvent> {MaxDegreeOfParallelism = 10};
 			producer.Attach(x => { Interlocked.Increment(ref actual); });
 
-			producer.RateLimitPolicy.Enabled = true;
-			producer.RateLimitPolicy.Occurrences = 1000;
-			producer.RateLimitPolicy.TimeUnit = TimeSpan.FromSeconds(1);
+			producer.RateLimitPolicy = new RateLimitPolicy
+			{
+				Enabled = true,
+				Occurrences = 1000,
+				TimeUnit = TimeSpan.FromSeconds(1)
+			};
 
 			for (var i = 0; i < expected; i++)
 				await producer.Produce(new BaseEvent {Id = i});
@@ -125,9 +131,12 @@ namespace reactive.pipes.tests
 			var actual = 0;
 			var producer = new BackgroundThreadProducer<BaseEvent> { MaxDegreeOfParallelism = 10 };
 			producer.AttachError(x => { /* compensating for not using an intermediary like Hub, which handles exceptions */});
-			producer.AttachUndeliverable(x => Interlocked.Increment(ref actual));
+			producer.AttachUndeliverable(new Action<BaseEvent>(x => Interlocked.Increment(ref actual)));
 			producer.Attach(new ThrowingHandler());
+
+			producer.RetryPolicy = new RetryPolicy();
 			producer.RetryPolicy.After(1, RetryDecision.Undeliverable);
+
 			for (var i = 0; i < expected; i++)
 				await producer.Produce(new BaseEvent { Id = i });
 			await producer.Start();
@@ -137,15 +146,29 @@ namespace reactive.pipes.tests
 		[Fact]
 		public async Task Can_requeue_with_exponential_backoff()
 		{
-			const int expected = 1000;
+			const int expected = 1;
+			const int maxTries = 3;
+
+			int actual = 0;
+
 			var producer = new BackgroundThreadProducer<BaseEvent> { MaxDegreeOfParallelism = 10 };
+
 			producer.AttachError(x => { /* compensating for not using an intermediary like Hub, which handles exceptions */});
 			producer.Attach(new ThrowingHandler());
+			producer.AttachUndeliverable(new Action<BaseEvent>(x => Interlocked.Increment(ref actual)));
+
+			producer.RetryPolicy = new RetryPolicy();
+			producer.RetryPolicy.After(maxTries, RetryDecision.Undeliverable);
+			
 			for (var i = 0; i < expected; i++)
 				await producer.Produce(new BaseEvent { Id = i });
 			await producer.Start();
-			await Task.Delay(1000);
+
+			while (producer.Undeliverable < expected)
+				await Task.Delay(10);
 			await producer.Stop();
+
+			Assert.Equal(expected, actual);
 		}
 	}
 }

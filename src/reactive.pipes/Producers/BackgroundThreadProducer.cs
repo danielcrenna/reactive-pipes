@@ -13,6 +13,12 @@ using reactive.pipes.Helpers;
 
 namespace reactive.pipes.Producers
 {
+	public struct QueuedMessage<T>
+	{
+		public T Message { get; set; }
+		public int Attempts { get; set; }
+	}
+
     /// <summary>
     /// A default producer implementation that produces on a background thread
     /// <remarks>
@@ -33,9 +39,9 @@ namespace reactive.pipes.Producers
         private readonly SemaphoreSlim _empty;
         private readonly Stopwatch _uptime;
 
-        private IConsume<T> _consumer;
-        private IConsume<T> _backlogConsumer;
-        private IConsume<T> _undeliverableConsumer;
+        private IConsume<QueuedMessage<T>> _consumer;
+        private IConsume<QueuedMessage<T>> _backlogConsumer;
+        private IConsume<QueuedMessage<T>> _undeliverableConsumer;
 	    private IConsume<Exception> _errorConsumer;
 
 		private readonly bool _internal;
@@ -60,9 +66,9 @@ namespace reactive.pipes.Producers
 
         public Action OnStopped { get; set; }
 
-        public RetryPolicy RetryPolicy { get; }
+        public RetryPolicy RetryPolicy { get; set; }
 
-        public RateLimitPolicy RateLimitPolicy { get; }
+        public RateLimitPolicy RateLimitPolicy { get; set; }
 
 	    public BackgroundThreadProducer(IObservable<T> source) : this()
         {
@@ -93,10 +99,7 @@ namespace reactive.pipes.Producers
             _cancel = new CancellationTokenSource();
             _empty = new SemaphoreSlim(1);
 
-			RetryPolicy = new RetryPolicy();
-            RateLimitPolicy = new RateLimitPolicy();
-
-            var devNull = new ActionConsumer<T>(@event => { });
+			var devNull = new ActionConsumer<QueuedMessage<T>>(message => { });
 
             _consumer = devNull;
             _backlogConsumer = devNull;
@@ -109,7 +112,7 @@ namespace reactive.pipes.Producers
             {
                 // If we added to the backlog queue while stopping,
                 // then observables could fill it after a flush 
-                await HandleBacklog(message);
+                await HandleBacklog(message, TryGetAttempts(message));
             }
             else
             {
@@ -117,13 +120,30 @@ namespace reactive.pipes.Producers
             }
         }
 
-	    public async Task Produce(IList<T> messages)
+	    public async Task Produce(QueuedMessage<T> message)
+	    {
+		    if (_buffer.IsAddingCompleted)
+		    {
+			    // If we added to the backlog queue while stopping,
+			    // then observables could fill it after a flush 
+			    await HandleBacklog(message.Message, message.Attempts);
+		    }
+		    else
+		    {
+			    _buffer.Add(message.Message);
+
+			    if (RetryPolicy != null)
+					_attempts[HashMessage(message.Message)] = message.Attempts;
+			}
+	    }
+
+		public async Task Produce(IList<T> messages)
         {
             if (messages.Count == 0)
                 return;
 
-            foreach (var @event in messages)
-                await Produce(@event);
+            foreach (var message in messages)
+                await Produce(message);
         }
 
         public void Produce(IEnumerable<T> stream, TimeSpan? interval = null)
@@ -190,22 +210,49 @@ namespace reactive.pipes.Producers
 	            token: _cancel.Token);
 		}
 
-        public void Attach(IConsume<T> consumer)
+	    public void Attach(IConsume<T> consumer)
+	    {
+		    _consumer = new ActionConsumer<QueuedMessage<T>>(async x => await consumer.HandleAsync(x.Message));
+	    }
+
+		public void Attach(IConsume<QueuedMessage<T>> consumer)
         {
             _consumer = consumer;
         }
 
-        public void Attach(Action<T> @delegate)
+        public void Attach(Action<QueuedMessage<T>> @delegate)
         {
-            _consumer = new ActionConsumer<T>(@delegate);
+            _consumer = new ActionConsumer<QueuedMessage<T>>(@delegate);
         }
+
+		#region Backlog
 
 		/// <summary>
 		/// This consumer is invoked when the producer is stopped immediately or otherwise interrupted, as such on disposal.
 		/// Any messages still waiting to be delivered are flushed to this consumer. If the consumer reports a failure, then the
 		/// messages are swept to the undeliverable consumer. 
 		/// </summary>
-        public void AttachBacklog(IConsume<T> consumer)
+		public void AttachBacklog(IConsume<T> consumer)
+	    {
+		    _backlogConsumer = new ActionConsumer<QueuedMessage<T>>(async x => await consumer.HandleAsync(x.Message));
+	    }
+
+	    /// <summary>
+	    /// This consumer is invoked when the producer is stopped immediately or otherwise interrupted, as such on disposal.
+	    /// Any messages still waiting to be delivered are flushed to this consumer. If the consumer reports a failure, then the
+	    /// messages are swept to the undeliverable consumer. 
+	    /// </summary>
+	    public void AttachBacklog(Action<T> consumer)
+	    {
+		    _backlogConsumer = new ActionConsumer<QueuedMessage<T>>(x => consumer(x.Message));
+	    }
+
+		/// <summary>
+		/// This consumer is invoked when the producer is stopped immediately or otherwise interrupted, as such on disposal.
+		/// Any messages still waiting to be delivered are flushed to this consumer. If the consumer reports a failure, then the
+		/// messages are swept to the undeliverable consumer. 
+		/// </summary>
+		public void AttachBacklog(IConsume<QueuedMessage<T>> consumer)
         {
             _backlogConsumer = consumer;
         }
@@ -215,22 +262,49 @@ namespace reactive.pipes.Producers
 	    /// Any messages still waiting to be delivered are flushed to this consumer. If the consumer reports a failure, then the
 	    /// messages are swept to the undeliverable consumer. 
 	    /// </summary>
-		public void AttachBacklog(Action<T> @delegate)
+		public void AttachBacklog(Action<QueuedMessage<T>> @delegate)
         {
-            _backlogConsumer = new ActionConsumer<T>(@delegate);
+            _backlogConsumer = new ActionConsumer<QueuedMessage<T>>(@delegate);
         }
 
-        public void AttachUndeliverable(IConsume<T> consumer)
+		#endregion
+
+		#region Undeliverable
+
+		/// <summary>
+		/// This consumer is invoked when the producer has given up on trying to deliver this message iteration.
+		/// This is the last chance consumer before the message is scrubbed from transient state.
+		/// Keep in mind that nothing stops another process from sending the same message in once it has been
+		/// finalized (sent or undeliverable) at the producer, since the hash is cleared for that message.
+		///
+		/// Hence, this provides a best effort "at least once" delivery guarantee, though you are responsible
+		/// for recovering in the event of an undelivery or failure, as the pipeline cannot make guarantees beyond
+		/// only clearing handlers that return true or reach a finalized state.
+		/// </summary>
+		/// <param name="consumer"></param>
+		public void AttachUndeliverable(IConsume<T> consumer)
+	    {
+		    _undeliverableConsumer = new ActionConsumer<QueuedMessage<T>>(async x => await consumer.HandleAsync(x.Message));
+		}
+
+		public void AttachUndeliverable(Action<T> consumer)
+		{
+			_undeliverableConsumer = new ActionConsumer<QueuedMessage<T>>(x => consumer(x.Message));
+		}
+
+		public void AttachUndeliverable(IConsume<QueuedMessage<T>> consumer)
         {
             _undeliverableConsumer = consumer;
         }
 
-        public void AttachUndeliverable(Action<T> @delegate)
+        public void AttachUndeliverable(Action<QueuedMessage<T>> @delegate)
         {
-            _undeliverableConsumer = new ActionConsumer<T>(@delegate);
+            _undeliverableConsumer = new ActionConsumer<QueuedMessage<T>>(@delegate);
         }
 
-	    public void AttachError(Action<Exception> onError)
+		#endregion
+
+		public void AttachError(Action<Exception> onError)
 	    {
 			_errorConsumer = new ActionConsumer<Exception>(onError);
 	    }
@@ -245,13 +319,15 @@ namespace reactive.pipes.Producers
             if (_background != null)
             {
                 await Stop(immediate);
-                _background = null;
+                _background?.Dispose();
+	            _background = null;
             }
 
-            RequisitionBackgroundTasks();
+            RequisitionBackgroundTask();
 
             _uptime.Start();
             Running = true;
+	        OnStarted?.Invoke();
         }
 
 		/// <summary>Stops accepting new messages for immediate delivery. </summary>
@@ -272,6 +348,8 @@ namespace reactive.pipes.Producers
 	        _uptime.Stop();
 	        if (_internal)
 		        _buffer = new BlockingCollection<T>();
+
+	        OnStopped?.Invoke();
 		}
 
 	    private async Task WaitForEmptyBuffer()
@@ -285,7 +363,7 @@ namespace reactive.pipes.Producers
             _cancel.Token.WaitHandle.WaitOne();
         }
 
-	    private async Task HandleBacklog(T message)
+	    private async Task HandleBacklog(T message, int attempts)
 	    {
 		    if (_backlogConsumer != null)
 		    {
@@ -293,7 +371,7 @@ namespace reactive.pipes.Producers
 			    {
 				    try
 				    {
-					    if (!await _backlogConsumer.HandleAsync(message))
+					    if (!await _backlogConsumer.HandleAsync(new QueuedMessage<T> { Attempts = attempts, Message = message }))
 					    {
 						    await HandleUndeliverable(message);
 					    }
@@ -306,7 +384,7 @@ namespace reactive.pipes.Producers
 				}
 			    else
 			    {
-				    if (!await _backlogConsumer.HandleAsync(message))
+				    if (!await _backlogConsumer.HandleAsync(new QueuedMessage<T> { Attempts = attempts, Message = message }))
 				    {
 					    await HandleUndeliverable(message);
 				    }
@@ -318,14 +396,13 @@ namespace reactive.pipes.Producers
         {
 			if(_undeliverableConsumer != null)
 			{
+				var attempts = TryGetAttempts(message);
+
 				if (_errorConsumer != null)
 				{
 					try
 					{
-						if (await _undeliverableConsumer.HandleAsync(message))
-						{
-							Interlocked.Increment(ref _undelivered);
-						}
+						await _undeliverableConsumer.HandleAsync(new QueuedMessage<T> { Attempts = attempts, Message = message });
 					}
 					catch (Exception e)
 					{
@@ -334,11 +411,12 @@ namespace reactive.pipes.Producers
 				}
 				else
 				{
-					if (await _undeliverableConsumer.HandleAsync(message))
-					{
-						Interlocked.Increment(ref _undelivered);
-					}
+					await _undeliverableConsumer.HandleAsync(new QueuedMessage<T> { Attempts = attempts, Message = message });
 				}
+
+				Interlocked.Increment(ref _undelivered);
+				if (RetryPolicy != null)
+					_attempts.Remove(HashMessage(message));
 			}
         }
 
@@ -373,7 +451,7 @@ namespace reactive.pipes.Producers
             await Start(immediate);
         }
 
-        private void RequisitionBackgroundTasks()
+        private void RequisitionBackgroundTask()
         {
             var options = new ParallelOptions
             {
@@ -397,7 +475,7 @@ namespace reactive.pipes.Producers
         private BlockingCollection<T> GetProductionSource()
         {
             BlockingCollection<T> source;
-            if (RateLimitPolicy.Enabled)
+            if (RateLimitPolicy != null && RateLimitPolicy.Enabled)
             {
                 // Convert the outgoing blocking collection into a rate limited observable, then feed a new blocking queue with it
                 var sequence = _buffer.AsRateLimitedObservable(RateLimitPolicy.Occurrences, RateLimitPolicy.TimeUnit, _cancel.Token);
@@ -417,7 +495,7 @@ namespace reactive.pipes.Producers
             while (!_buffer.IsCompleted)
             {
 				if(_buffer.TryTake(out var message, -1, _cancel.Token))
-					await HandleBacklog(message);
+					await HandleBacklog(message, TryGetAttempts(message));
             }
             _empty.Release();
         }
@@ -431,22 +509,24 @@ namespace reactive.pipes.Producers
 
         private async Task ProductionCycle(ParallelOptions options, T message, ParallelLoopState state)
         {
-            if (state.ShouldExitCurrentIteration)
+	        var attempts = TryGetAttempts(message);
+
+			if (state.ShouldExitCurrentIteration)
             {
-                await HandleBacklog(message);
+                await HandleBacklog(message, attempts);
                 return;
             }
 			
-	        if (_errorConsumer != null)
+			if (_errorConsumer != null)
 	        {
 		        try
 		        {
-			        if (!await _consumer.HandleAsync(message))
+			        if (!await _consumer.HandleAsync(new QueuedMessage<T> { Attempts = attempts, Message = message }))
 			        {
 				        await HandleUnsuccessfulDelivery(options, message, state);
 				        return;
 			        }
-				}
+		        }
 		        catch (Exception e)
 		        {
 			        await _errorConsumer.HandleAsync(e);
@@ -456,22 +536,38 @@ namespace reactive.pipes.Producers
 			}
 	        else
 	        {
-		        if (!await _consumer.HandleAsync(message))
+		        if (!await _consumer.HandleAsync(new QueuedMessage<T> { Attempts = attempts, Message = message }))
 		        {
 			        await HandleUnsuccessfulDelivery(options, message, state);
 			        return;
 		        }
-	        }
+			}
 
+	        if (RetryPolicy != null)
+		        _attempts.Remove(HashMessage(message));
 			Interlocked.Increment(ref _sent);
 			options.CancellationToken.ThrowIfCancellationRequested();
         }
 
-		private async Task HandleUnsuccessfulDelivery(ParallelOptions options, T message, ParallelLoopState state)
+	    int TryGetAttempts(T message)
+	    {
+			if (RetryPolicy == null)
+				return 0;
+		    _attempts.TryGetValue(HashMessage(message), out var attempts);
+		    return attempts;
+	    }
+
+	    private async Task HandleUnsuccessfulDelivery(ParallelOptions options, T message, ParallelLoopState state)
 		{
+			if (RetryPolicy == null)
+			{
+				await HandleUndeliverable(message);
+				return;
+			}
+
 			var hash = HashMessage(message);
 			var attempts = IncrementAttempts(hash);
-			var decision = RetryPolicy?.DecideOn(message, attempts) ?? RetryDecision.Undeliverable;
+			var decision = RetryPolicy.DecideOn(message, attempts);
 
 			switch (decision)
 			{
@@ -482,18 +578,15 @@ namespace reactive.pipes.Producers
 					if (!_buffer.IsAddingCompleted && RetryPolicy?.RequeueInterval != null)
 						Produce(Observable.Return(message).Delay(RetryPolicy.RequeueInterval(attempts)));
 					else
-						await Produce(message);
+						await Produce(new QueuedMessage<T> {Message = message, Attempts = attempts});
 					break;
 				case RetryDecision.Backlog:
-					_attempts.Remove(hash);
-					await HandleBacklog(message);
+					await HandleBacklog(message, attempts);
 					break;
 				case RetryDecision.Undeliverable:
-					_attempts.Remove(hash);
 					await HandleUndeliverable(message);
 					break;
 				case RetryDecision.Destroy:
-					_attempts.Remove(hash);
 					break;
 				default:
 					throw new ArgumentOutOfRangeException();
