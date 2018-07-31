@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Threading;
 using reactive.pipes.tests.Fakes;
 using reactive.tests.Fakes;
 using Xunit;
@@ -347,6 +349,22 @@ namespace reactive.pipes.tests
 			Assert.True(handled1 == 1);
 			Assert.True(handled2 == 1);
 			Assert.True(result);
+		}
+
+		[Fact]
+		public void Can_use_scoped_handler()
+		{
+			var hub = new Hub();
+			var cache = new ThreadLocal<List<string>>(()=> new List<string>());
+			var handler = new ThreadLocalScopedHandler(cache);
+			hub.Subscribe(handler);
+			bool result = hub.Publish(new BaseEvent());
+			Assert.True(result);
+			Assert.Single(handler.Lines); // Before
+
+			var accessor = cache;
+			Assert.NotNull(accessor.Value);
+			Assert.Equal(2, accessor.Value.Count); // Before, After
 		}
 	}
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 
 namespace reactive.pipes.Producers
 {
@@ -23,14 +24,14 @@ namespace reactive.pipes.Producers
             Background.Attach(consumer);
         }
 
-        public virtual void Start(bool immediate = false)
+        public virtual Task Start(bool immediate = false)
         {
-            Background.Start(immediate);
+            return Background.Start(immediate);
         }
 
-        public virtual void Stop(bool immediate = false)
+        public virtual Task Stop(bool immediate = false)
         {
-            Background.Stop(immediate);
+            return Background.Stop(immediate);
         }
 
         public void Dispose()
@@ -42,8 +43,7 @@ namespace reactive.pipes.Producers
         protected virtual void Dispose(bool disposing)
         {
             if (!disposing) return;
-            if (Background == null) return;
-            Background.Dispose();
+            Background?.Dispose();
             Background = null;
         }
     }

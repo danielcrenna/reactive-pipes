@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Threading.Tasks;
-using reactive.tests.Fakes;
 
 namespace reactive.pipes.tests.Fakes
 {
@@ -10,7 +9,6 @@ namespace reactive.pipes.tests.Fakes
         {
             if(message.Error)
                 throw new Exception("The message made me do it!");
-
             return Task.FromResult(true);
         }
     }

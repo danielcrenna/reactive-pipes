@@ -308,7 +308,7 @@ namespace reactive.pipes.Producers
 			_errorConsumer = new ActionConsumer<Exception>(onError);
 	    }
 
-        public async Task Start(bool immediate = false)
+        public virtual async Task Start(bool immediate = false)
         {
             if (Running)
             {
@@ -331,7 +331,7 @@ namespace reactive.pipes.Producers
 
 		/// <summary>Stops accepting new messages for immediate delivery. </summary>
 		/// <param name="immediate">If <code>true</code>, the service immediately redirects all messages in the queue to the backlog; emails that are queued after a stop call are always sent to the backlog. Otherwise, all queued messages are sent before closing the producer to additional messages.</param>
-		public async Task Stop(bool immediate = false)
+		public virtual async Task Stop(bool immediate = false)
         {
             if (!Running)
                 return;

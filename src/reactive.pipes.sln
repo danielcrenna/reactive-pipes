@@ -19,8 +19,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "reactive.pipes.tests", "rea
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "reactive.pipes.scheduled.tests", "reactive.pipes.scheduled.tests\reactive.pipes.scheduled.tests.csproj", "{AA421AE3-D93B-4F1A-B1FA-2F3807E0CAE8}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{56269E0A-22C4-45E8-BEC1-229B96EAA52A}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -50,11 +48,6 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{96B93262-8DE8-4939-A19E-B926A3668544} = {56269E0A-22C4-45E8-BEC1-229B96EAA52A}
-		{0D1E5E2F-E7F2-439B-9D18-8061AEE1EE4F} = {56269E0A-22C4-45E8-BEC1-229B96EAA52A}
-		{AA421AE3-D93B-4F1A-B1FA-2F3807E0CAE8} = {56269E0A-22C4-45E8-BEC1-229B96EAA52A}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {3021A61F-9383-4C4A-B162-D1C4C186AB90}

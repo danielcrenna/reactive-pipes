@@ -205,7 +205,16 @@ namespace reactive.pipes
 
         private static bool Handle<T>(IConsume<T> consumer, T @event)
         {
-            return consumer.HandleAsync(@event).ConfigureAwait(false).GetAwaiter().GetResult();
+	        if (consumer is IConsumeScoped<T> before)
+		        if (!before.Before())
+			        return false;
+
+			var result = consumer.HandleAsync(@event).ConfigureAwait(false).GetAwaiter().GetResult();
+
+	        if (consumer is IConsumeScoped<T> after)
+				result = after.After(result);
+
+	        return result;
         }
 
         /// <summary> The observable sequence has completed; technically, this should never happen unless disposing, so we should treat this similarly to a fault since we can't guarantee delivery. </summary>
