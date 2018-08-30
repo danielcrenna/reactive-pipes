@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFrameworks>netstandard2.0;net461</TargetFrameworks>
     <Version>1.5.0</Version>
     <Description>A scheduled background worker for reactive.pipes. Allows scheduling long-running tasks in the background.</Description>
     <Copyright>© 2012-2018 Daniel Crenna</Copyright>
