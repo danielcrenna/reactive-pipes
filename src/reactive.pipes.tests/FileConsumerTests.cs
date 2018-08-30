@@ -1,12 +1,11 @@
 using System.IO;
-using reactive.pipes;
 using reactive.pipes.Consumers;
 using reactive.pipes.Serializers;
 using reactive.pipes.tests.Fakes;
-using reactive.tests.Fakes;
+using reactive.tests;
 using Xunit;
 
-namespace reactive.tests
+namespace reactive.pipes.tests
 {
     public class FileConsumerTests : IClassFixture<FileFolderFixture>
     {

@@ -1,10 +1,8 @@
 using System;
-using reactive.pipes;
 using reactive.pipes.tests.Fakes;
-using reactive.tests.Fakes;
 using Xunit;
 
-namespace reactive.tests
+namespace reactive.pipes.tests
 {
     public class EventPublisherTests
     {

@@ -2,13 +2,11 @@
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
-using reactive.pipes;
 using reactive.pipes.tests.Fakes;
-using reactive.tests.Fakes;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace reactive.tests
+namespace reactive.pipes.tests
 {
     public class PerformanceTests
     {

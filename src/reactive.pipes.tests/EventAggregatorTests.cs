@@ -338,20 +338,6 @@ namespace reactive.pipes.tests
 		}
 
 		[Fact]
-		public void Two_identical_closure_handlers_through_manifold()
-		{
-			int handled1 = 0;
-			int handled2 = 0;
-			var hub = new Hub();
-			hub.Subscribe((object)new Action<StringEvent>(x => handled1++));
-			hub.Subscribe((object)new Action<StringEvent>(x => handled2++));
-			bool result = hub.Publish(new StringEvent("value"));
-			Assert.True(handled1 == 1);
-			Assert.True(handled2 == 1);
-			Assert.True(result);
-		}
-
-		[Fact]
 		public void Can_use_scoped_handler()
 		{
 			var hub = new Hub();
