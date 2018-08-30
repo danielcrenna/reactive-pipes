@@ -11,11 +11,20 @@ namespace reactive.pipes.scheduled
     public class SqlScheduleStore : IScheduleStore
     {
         private readonly string _connectionString;
+	    private readonly string _schema;
+	    private readonly string _tablePrefix;
 
-        public SqlScheduleStore(string connectionString)
-        {
-            _connectionString = connectionString;
-        }
+	    internal string TaskTable => $"[{_schema}].[{_tablePrefix}]";
+	    internal string TagTable => $"[{_schema}].[{_tablePrefix}_Tag]";
+	    internal string TagsTable => $"[{_schema}].[{_tablePrefix}_Tags]";
+
+
+		public SqlScheduleStore(string connectionString, string schema = "dbo", string tablePrefix = "ScheduledTask")
+	    {
+		    _connectionString = connectionString;
+		    _schema = schema;
+		    _tablePrefix = tablePrefix;
+	    }
 
         private static SqlTransaction InTransaction(SqlConnection db)
         {
@@ -70,7 +79,7 @@ namespace reactive.pipes.scheduled
             }
         }
 
-        public void Delete(ScheduledTask task)
+	    public void Delete(ScheduledTask task)
         {
             using (var db = new SqlConnection(_connectionString))
             {
@@ -78,14 +87,14 @@ namespace reactive.pipes.scheduled
 
                 var t = InTransaction(db);
 
-                const string sql = @"
+                var sql = $@"
 -- Primary relationship:
-DELETE FROM ScheduledTask_Tags WHERE ScheduledTaskId = @Id;
-DELETE FROM ScheduledTask WHERE Id = @Id;
+DELETE FROM {TagsTable} WHERE ScheduledTaskId = @Id;
+DELETE FROM {TaskTable} WHERE Id = @Id;
 
 -- Remove any orphaned tags:
-DELETE FROM ScheduledTask_Tag
-WHERE NOT EXISTS (SELECT 1 from ScheduledTask_Tags st WHERE ScheduledTask_Tag.Id = st.TagId)
+DELETE FROM {TagTable}
+WHERE NOT EXISTS (SELECT 1 FROM {TagsTable} st WHERE {TagTable}.Id = st.TagId)
 ";
                 db.Execute(sql, task, t);
 
@@ -152,10 +161,10 @@ WHERE NOT EXISTS (SELECT 1 from ScheduledTask_Tags st WHERE ScheduledTask_Tag.Id
             }
         }
 
-        private static void UpdateScheduledTask(ScheduledTask task, IDbConnection db, IDbTransaction t)
+        private void UpdateScheduledTask(ScheduledTask task, IDbConnection db, IDbTransaction t)
         {
-            const string sql = @"
-UPDATE ScheduledTask 
+            var sql = $@"
+UPDATE {TaskTable} 
 SET 
     Priority = @Priority, 
     Attempts = @Attempts, 
@@ -183,26 +192,25 @@ WHERE
             db.Execute(sql, task, t);
         }
 
-        private static void InsertScheduledTask(ScheduledTask task, IDbConnection db, IDbTransaction t)
+        private void InsertScheduledTask(ScheduledTask task, IDbConnection db, IDbTransaction t)
         {
-            const string sql = @"
-INSERT INTO ScheduledTask
+            var sql = $@"
+INSERT INTO {TaskTable} 
     (Priority, Attempts, Handler, RunAt, MaximumRuntime, MaximumAttempts, DeleteOnSuccess, DeleteOnFailure, DeleteOnError, Expression, Start, [End], ContinueOnSuccess, ContinueOnFailure, ContinueOnError) 
 VALUES
     (@Priority, @Attempts, @Handler, @RunAt, @MaximumRuntime, @MaximumAttempts, @DeleteOnSuccess, @DeleteOnFailure, @DeleteOnError, @Expression, @Start, @End, @ContinueOnSuccess, @ContinueOnFailure, @ContinueOnError);
 
-SELECT MAX(Id) FROM [ScheduledTask];
+SELECT MAX(Id) FROM {TaskTable};
 ";
             task.Id = db.Query<int>(sql, task, t).Single();
-            task.CreatedAt =
-                db.Query<DateTimeOffset>("SELECT CreatedAt FROM ScheduledTask WHERE Id = @Id", task, t).Single();
+            task.CreatedAt = db.Query<DateTimeOffset>($"SELECT CreatedAt FROM {TaskTable} WHERE Id = @Id", task, t).Single();
         }
 
 
-        private static void LockTasks(List<ScheduledTask> tasks, IDbConnection db, IDbTransaction t)
+        private void LockTasks(IReadOnlyCollection<ScheduledTask> tasks, IDbConnection db, IDbTransaction t)
         {
-            const string sql = @"
-UPDATE ScheduledTask 
+            var sql = $@"
+UPDATE {TaskTable}  
 SET 
     LockedAt = @Now, 
     LockedBy = @User 
@@ -226,25 +234,25 @@ WHERE Id IN
             }
         }
 
-        private static IEnumerable<ScheduledTask> GetLockedTasksWithTags(IDbConnection db, IDbTransaction t)
+        private IEnumerable<ScheduledTask> GetLockedTasksWithTags(IDbConnection db, IDbTransaction t)
         {
-            const string sql = @"
-SELECT ScheduledTask.*, ScheduledTask_Tag.Name FROM ScheduledTask
-LEFT JOIN ScheduledTask_Tags ON ScheduledTask_Tags.ScheduledTaskId = ScheduledTask.Id
-LEFT JOIN ScheduledTask_Tag ON ScheduledTask_Tags.TagId = ScheduledTask_Tag.Id
+            var sql = $@"
+SELECT {TaskTable}.*, {TagTable}.Name FROM {TaskTable}
+LEFT JOIN {TagsTable} ON {TagsTable}.ScheduledTaskId = {TaskTable}.Id
+LEFT JOIN {TagTable} ON {TagsTable}.TagId = {TagTable}.Id
 WHERE 
-    ScheduledTask.LockedAt IS NOT NULL
+    {TaskTable}.LockedAt IS NOT NULL
 ORDER BY
-    ScheduledTask_Tag.Name ASC    
+    {TagTable}.Name ASC    
 ";
             return QueryWithSplitOnTags(db, t, sql);
         }
 
-        private static List<ScheduledTask> GetUnlockedTasksWithTags(int readAhead, IDbConnection db, IDbTransaction t)
+        private List<ScheduledTask> GetUnlockedTasksWithTags(int readAhead, IDbConnection db, IDbTransaction t)
         {
             // None locked, failed or succeeded, must be due, ordered by due time then priority
-            const string sql = @"
-SELECT TOP {0} st.* FROM ScheduledTask st
+            var sql = $@"
+SELECT TOP {{0}} st.* FROM {TaskTable} st
 WHERE
     st.[LockedAt] IS NULL 
 AND
@@ -264,26 +272,26 @@ ORDER BY
             if (!matches.Any())
                 return matches;
 
-            const string fetchSql = @"
-SELECT ScheduledTask.*, ScheduledTask_Tag.Name FROM ScheduledTask
-LEFT JOIN ScheduledTask_Tags ON ScheduledTask_Tags.ScheduledTaskId = ScheduledTask.Id
-LEFT JOIN ScheduledTask_Tag ON ScheduledTask_Tags.TagId = ScheduledTask_Tag.Id
-WHERE ScheduledTask.Id IN @Ids
-ORDER BY ScheduledTask_Tag.Name ASC
+            var fetchSql = $@"
+SELECT {TaskTable}.*, {TagTable}.Name FROM {TaskTable}
+LEFT JOIN {TagsTable} ON {TagsTable}.ScheduledTaskId = {TaskTable}.Id
+LEFT JOIN {TagTable} ON {TagsTable}.TagId = {TagTable}.Id
+WHERE {TaskTable}.Id IN @Ids
+ORDER BY {TagTable}.Name ASC
 ";
             var ids = matches.Select(m => m.Id);
 
             return QueryWithSplitOnTags(db, t, fetchSql, new { Ids = ids });
         }
 
-        private static ScheduledTask GetByIdWithTags(int id, IDbConnection db, IDbTransaction t)
+        private ScheduledTask GetByIdWithTags(int id, IDbConnection db, IDbTransaction t)
         {
-            const string sql = @"
-SELECT ScheduledTask.*, ScheduledTask_Tag.Name FROM ScheduledTask
-LEFT JOIN ScheduledTask_Tags ON ScheduledTask_Tags.ScheduledTaskId = ScheduledTask.Id
-LEFT JOIN ScheduledTask_Tag ON ScheduledTask_Tags.TagId = ScheduledTask_Tag.Id
-WHERE ScheduledTask.Id = @Id
-ORDER BY ScheduledTask_Tag.Name ASC
+            var sql = $@"
+SELECT {TaskTable}.*, {TagTable}.Name FROM {TaskTable}
+LEFT JOIN {TagsTable} ON {TagsTable}.ScheduledTaskId = {TaskTable}.Id
+LEFT JOIN {TagTable} ON {TagsTable}.TagId = {TagTable}.Id
+WHERE {TaskTable}.Id = @Id
+ORDER BY {TagTable}.Name ASC
 ";
             ScheduledTask task = null;
             db.Query<ScheduledTask, string, ScheduledTask>(sql, (s, tag) =>
@@ -297,22 +305,22 @@ ORDER BY ScheduledTask_Tag.Name ASC
             return task;
         }
 
-        private static IList<ScheduledTask> GetAllWithTags(IDbConnection db, IDbTransaction t)
+        private IList<ScheduledTask> GetAllWithTags(IDbConnection db, IDbTransaction t)
         {
-            const string sql = @"
-SELECT ScheduledTask.*, ScheduledTask_Tag.Name FROM ScheduledTask
-LEFT JOIN ScheduledTask_Tags ON ScheduledTask_Tags.ScheduledTaskId = ScheduledTask.Id
-LEFT JOIN ScheduledTask_Tag ON ScheduledTask_Tags.TagId = ScheduledTask_Tag.Id
-ORDER BY ScheduledTask_Tag.Name ASC
+            var sql = $@"
+SELECT {TaskTable}.*, {TagTable}.Name FROM {TaskTable}
+LEFT JOIN {TagsTable} ON {TagsTable}.ScheduledTaskId = {TaskTable}.Id
+LEFT JOIN {TagTable} ON {TagsTable}.TagId = {TagTable}.Id
+ORDER BY {TagTable}.Name ASC
 ";
             return QueryWithSplitOnTags(db, t, sql);
         }
 
-        private static IList<ScheduledTask> GetByAnyTagsWithTags(string[] tags, SqlConnection db, SqlTransaction t)
+        private IList<ScheduledTask> GetByAnyTagsWithTags(string[] tags, SqlConnection db, SqlTransaction t)
         {
-            const string matchSql = @"
+            var matchSql = $@"
 SELECT st.*
-FROM ScheduledTask_Tags stt, ScheduledTask st, ScheduledTask_Tag t
+FROM {TagsTable} stt, {TaskTable} st, {TagTable} t
 WHERE stt.TagId = t.Id
 AND t.Name IN @Tags
 AND st.Id = stt.ScheduledTaskId
@@ -326,23 +334,23 @@ t.Name
             if (!matches.Any())
                 return matches;
 
-            const string fetchSql = @"
-SELECT ScheduledTask.*, ScheduledTask_Tag.Name FROM ScheduledTask
-LEFT JOIN ScheduledTask_Tags ON ScheduledTask_Tags.ScheduledTaskId = ScheduledTask.Id
-LEFT JOIN ScheduledTask_Tag ON ScheduledTask_Tags.TagId = ScheduledTask_Tag.Id
-WHERE ScheduledTask.Id IN @Ids
-ORDER BY ScheduledTask_Tag.Name ASC
+            var fetchSql = $@"
+SELECT {TaskTable}.*, {TagTable}.Name FROM {TaskTable}
+LEFT JOIN {TagsTable} ON {TagsTable}.ScheduledTaskId = {TaskTable}.Id
+LEFT JOIN {TagTable} ON {TagsTable}.TagId = {TagTable}.Id
+WHERE {TaskTable}.Id IN @Ids
+ORDER BY {TagTable}.Name ASC
 ";
             var ids = matches.Select(m => m.Id);
 
             return QueryWithSplitOnTags(db, t, fetchSql, new { Ids = ids });
         }
 
-        private static IList<ScheduledTask> GetByAllTagsWithTags(string[] tags, IDbConnection db, SqlTransaction t)
+        private IList<ScheduledTask> GetByAllTagsWithTags(string[] tags, IDbConnection db, SqlTransaction t)
         {
-            const string matchSql = @"
+            var matchSql = $@"
 SELECT st.*
-FROM ScheduledTask_Tags stt, ScheduledTask st, ScheduledTask_Tag t
+FROM {TagsTable} stt, {TaskTable} st, {TagTable} t
 WHERE stt.TagId = t.Id
 AND t.Name IN @Tags
 AND st.Id = stt.ScheduledTaskId
@@ -356,12 +364,12 @@ HAVING COUNT (st.Id) = @Count
             if (!matches.Any())
                 return matches;
 
-            const string fetchSql = @"
-SELECT ScheduledTask.*, ScheduledTask_Tag.Name FROM ScheduledTask
-LEFT JOIN ScheduledTask_Tags ON ScheduledTask_Tags.ScheduledTaskId = ScheduledTask.Id
-LEFT JOIN ScheduledTask_Tag ON ScheduledTask_Tags.TagId = ScheduledTask_Tag.Id
-WHERE ScheduledTask.Id IN @Ids
-ORDER BY ScheduledTask_Tag.Name ASC
+            var fetchSql = $@"
+SELECT {TaskTable}.*, {TagTable}.Name FROM {TaskTable}
+LEFT JOIN {TagsTable} ON {TagsTable}.ScheduledTaskId = {TaskTable}.Id
+LEFT JOIN {TagTable} ON {TagsTable}.TagId = {TagTable}.Id
+WHERE {TaskTable}.Id IN @Ids
+ORDER BY {TagTable}.Name ASC
 ";
             var ids = matches.Select(m => m.Id);
 
@@ -387,13 +395,13 @@ ORDER BY ScheduledTask_Tag.Name ASC
 
         private static readonly List<string> NoTags = new List<string>();
 
-        private static void UpdateTagMapping(ScheduledTask task, IDbConnection db, IDbTransaction t)
+        private void UpdateTagMapping(ScheduledTask task, IDbConnection db, IDbTransaction t)
         {
             var source = task.Tags ?? NoTags;
 
             if (source == NoTags || source.Count == 0)
             {
-                db.Execute("DELETE FROM ScheduledTask_Tags WHERE ScheduledTaskId = @Id", task, transaction: t);
+                db.Execute($"DELETE FROM {TagsTable} WHERE ScheduledTaskId = @Id", task, transaction: t);
                 return;
             }
 
@@ -404,31 +412,31 @@ ORDER BY ScheduledTask_Tag.Name ASC
             // sql server only permits 1000 values per statement
             foreach (var tags in normalized.Split(1000))
             {
-                const string upsertSql = @"
+                var upsertSql = $@"
 -- upsert tags
-MERGE ScheduledTask_Tag
-USING (VALUES {0}) AS Pending (Name) 
-ON ScheduledTask_Tag.Name = Pending.Name 
+MERGE {TagTable}
+USING (VALUES {{0}}) AS Pending (Name) 
+ON {TagTable}.Name = Pending.Name 
 WHEN NOT MATCHED THEN
     INSERT (Name) VALUES (Pending.Name)
 ;
 
 -- sync tag mappings
-MERGE ScheduledTask_Tags
+MERGE {TagsTable}
 USING
     (SELECT @ScheduledTaskId AS ScheduledTaskId, Id AS TagId 
-       FROM ScheduledTask_Tag 
+       FROM {TagTable} 
       WHERE Name IN @Tags) AS Pending (ScheduledTaskId, TagId) 
-ON ScheduledTask_Tags.ScheduledTaskId = Pending.ScheduledTaskId 
-AND ScheduledTask_Tags.TagId = Pending.TagId 
-WHEN NOT MATCHED BY SOURCE AND ScheduledTask_Tags.ScheduledTaskId = @ScheduledTaskId THEN
+ON {TagsTable}.ScheduledTaskId = Pending.ScheduledTaskId 
+AND {TagsTable}.TagId = Pending.TagId 
+WHEN NOT MATCHED BY SOURCE AND {TagsTable}.ScheduledTaskId = @ScheduledTaskId THEN
     DELETE 
 WHEN NOT MATCHED THEN 
     INSERT (ScheduledTaskId,TagId) VALUES (Pending.ScheduledTaskId, Pending.TagId)
 ;
 ";
-                IEnumerable<string> values = tags.Select(tag => $"('{tag}')");
-                string sql = string.Format(upsertSql, string.Join(",", values));
+                var values = tags.Select(tag => $"('{tag}')");
+                var sql = string.Format(upsertSql, string.Join(",", values));
                 db.Execute(sql, new { ScheduledTaskId = task.Id, Tags = tags }, transaction: t);
             }
         }
