@@ -17,7 +17,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "reactive.pipes.examples", "
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "reactive.pipes.tests", "reactive.pipes.tests\reactive.pipes.tests.csproj", "{0D1E5E2F-E7F2-439B-9D18-8061AEE1EE4F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "reactive.pipes.scheduled.tests", "reactive.pipes.scheduled.tests\reactive.pipes.scheduled.tests.csproj", "{AA421AE3-D93B-4F1A-B1FA-2F3807E0CAE8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "reactive.pipes.scheduled.tests", "reactive.pipes.scheduled.tests\reactive.pipes.scheduled.tests.csproj", "{7A8ED619-1936-49EB-B1F7-0AE9A20D39D7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -41,10 +41,10 @@ Global
 		{0D1E5E2F-E7F2-439B-9D18-8061AEE1EE4F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0D1E5E2F-E7F2-439B-9D18-8061AEE1EE4F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0D1E5E2F-E7F2-439B-9D18-8061AEE1EE4F}.Release|Any CPU.Build.0 = Release|Any CPU
-		{AA421AE3-D93B-4F1A-B1FA-2F3807E0CAE8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{AA421AE3-D93B-4F1A-B1FA-2F3807E0CAE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{AA421AE3-D93B-4F1A-B1FA-2F3807E0CAE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{AA421AE3-D93B-4F1A-B1FA-2F3807E0CAE8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7A8ED619-1936-49EB-B1F7-0AE9A20D39D7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7A8ED619-1936-49EB-B1F7-0AE9A20D39D7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7A8ED619-1936-49EB-B1F7-0AE9A20D39D7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7A8ED619-1936-49EB-B1F7-0AE9A20D39D7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
