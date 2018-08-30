@@ -1,6 +1,4 @@
-using reactive.pipes.scheduled;
-
-namespace reactive.tests.Scheduled
+namespace reactive.pipes.scheduled.tests
 {
     public class InMemoryScheduleStoreTests : ScheduleStoreTests
     {

@@ -1,9 +1,8 @@
 ﻿using System;
 using NCrontab;
-using reactive.pipes.scheduled;
 using Xunit;
 
-namespace reactive.tests.Scheduled
+namespace reactive.pipes.scheduled.tests
 {
     public class CronTemplatesTests
     {

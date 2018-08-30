@@ -1,14 +1,12 @@
 ﻿using System;
-using System.Management.Instrumentation;
 using System.Threading;
 using System.Threading.Tasks;
-using reactive.pipes.scheduled;
 using reactive.pipes.scheduled.tests.Fakes;
-using reactive.tests.Fixtures;
-using reactive.tests.Scheduled.Migrations;
+using reactive.pipes.scheduled.tests.Fixtures;
+using reactive.pipes.scheduled.tests.Migrations;
 using Xunit;
 
-namespace reactive.tests.Scheduled
+namespace reactive.pipes.scheduled.tests
 {
     public class ScheduledProducerTests
     {

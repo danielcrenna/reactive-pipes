@@ -2,7 +2,7 @@
 using System.Data.SqlClient;
 using Dapper;
 
-namespace reactive.tests.Fixtures
+namespace reactive.pipes.scheduled.tests.Fixtures
 {
     public class SqlServerFixture : IDisposable
     {
@@ -10,11 +10,11 @@ namespace reactive.tests.Fixtures
 
         public string ConnectionString { get; }
 
-        public SqlServerFixture() : this("localhost", "") { }
+        public SqlServerFixture() : this("DESKTOP-DLRT2J3\\SQLEXPRESS", "") { }
 
-        private SqlServerFixture(string server, string prefix)
+	    private SqlServerFixture(string server, string prefix)
         {
-            var database = CreateDatabase(prefix);
+			var database = CreateDatabase(server, prefix);
             var connectionString = $"Data Source={server};Initial Catalog={database};Integrated Security=SSPI";
             _database = database;
             ConnectionString = connectionString;
@@ -40,10 +40,10 @@ namespace reactive.tests.Fixtures
             }
         }
 
-        private static string CreateDatabase(string prefix)
+        private static string CreateDatabase(string server, string prefix)
         {
             var database = string.Concat(prefix, Guid.NewGuid(), "_", DateTimeOffset.UtcNow.Ticks);
-            const string connectionString = "Data Source=localhost;Integrated Security=SSPI;";
+            var connectionString = $"Data Source={server};Integrated Security=SSPI;";
             using (var connection = new SqlConnection(connectionString))
             {
                 connection.Open();

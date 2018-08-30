@@ -1,9 +1,8 @@
-﻿using reactive.pipes.scheduled;
-using reactive.tests.Fixtures;
-using reactive.tests.Scheduled.Migrations;
+﻿using reactive.pipes.scheduled.tests.Fixtures;
+using reactive.pipes.scheduled.tests.Migrations;
 using Xunit;
 
-namespace reactive.tests.Scheduled
+namespace reactive.pipes.scheduled.tests
 {
     public class SqlScheduleStoreTests : ScheduleStoreTests, IClassFixture<SqlServerFixture>
     {

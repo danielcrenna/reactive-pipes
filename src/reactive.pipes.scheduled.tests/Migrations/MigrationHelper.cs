@@ -5,7 +5,7 @@ using FluentMigrator.Runner;
 using FluentMigrator.Runner.Announcers;
 using FluentMigrator.Runner.Initialization;
 
-namespace reactive.tests.Scheduled.Migrations
+namespace reactive.pipes.scheduled.tests.Migrations
 {
     internal class MigrationHelper
     {

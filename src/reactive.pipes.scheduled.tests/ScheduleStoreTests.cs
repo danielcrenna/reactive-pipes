@@ -1,8 +1,7 @@
 using System.Collections.Generic;
-using reactive.pipes.scheduled;
 using Xunit;
 
-namespace reactive.tests.Scheduled
+namespace reactive.pipes.scheduled.tests
 {
     public abstract class ScheduleStoreTests
     {

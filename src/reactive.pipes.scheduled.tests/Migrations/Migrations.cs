@@ -1,7 +1,6 @@
-﻿using System;
-using FluentMigrator;
+﻿using FluentMigrator;
 
-namespace reactive.tests.Scheduled.Migrations
+namespace reactive.pipes.scheduled.tests.Migrations
 {
     [Migration(1)]
     public class Empty : AutoReversingMigration
@@ -58,7 +57,9 @@ namespace reactive.tests.Scheduled.Migrations
 
         public override void Down()
         {
-            Execute.Sql("DROP TABLE [ScheduledTask]");
+	        Execute.Sql("DROP TABLE [ScheduledTask_Tags]");
+	        Execute.Sql("DROP TABLE [ScheduledTask_Tag]");
+			Execute.Sql("DROP TABLE [ScheduledTask]");
             Execute.Sql("DROP SEQUENCE [ScheduledTask_Id]");
         }
     }

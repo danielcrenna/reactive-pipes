@@ -1,19 +1,21 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Linq;
-using reactive.tests.Fixtures;
+using reactive.pipes.scheduled.tests.Fixtures;
 using Xunit;
+using Xunit.Abstractions;
 
-namespace reactive.tests.Scheduled.Migrations
+namespace reactive.pipes.scheduled.tests.Migrations
 {
     public class MigrationTests : IClassFixture<SqlServerFixture>
     {
         private readonly SqlServerFixture _db;
+	    private readonly ITestOutputHelper _console;
 
-        public MigrationTests(SqlServerFixture fixture)
-        {
-            _db = fixture;
-        }
+	    public MigrationTests(SqlServerFixture fixture, ITestOutputHelper console)
+	    {
+		    _db = fixture;
+		    _console = console;
+	    }
 
         [Fact]
         public void Migrates_to_latest_version()
@@ -36,7 +38,7 @@ namespace reactive.tests.Scheduled.Migrations
             lines = lines.Where(l => !l.StartsWith("INSERT INTO [dbo].[VersionInfo]")).ToArray();
             sql = string.Join(Environment.NewLine, lines);
 
-            Trace.WriteLine(sql);
+	        _console.WriteLine(sql);
         }
     }
 }
