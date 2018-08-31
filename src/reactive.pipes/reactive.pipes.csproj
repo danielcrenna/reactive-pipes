@@ -10,8 +10,8 @@
     <PackageLicenseUrl>https://github.com/danielcrenna/reactive-pipes/blob/master/LICENSE</PackageLicenseUrl>
     <PackageProjectUrl>http://github.com/danielcrenna/reactive-pipes</PackageProjectUrl>
     <RepositoryUrl>http://github.com/danielcrenna/reactive-pipes</RepositoryUrl>
-    <PackageReleaseNotes>update to .netstandard 2.0 only</PackageReleaseNotes>
-    <Version>1.5.0</Version>
+    <PackageReleaseNotes>add net461 support back</PackageReleaseNotes>
+    <Version>1.5.1</Version>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Authors>Daniel Crenna</Authors>

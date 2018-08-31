@@ -2,14 +2,14 @@
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net461</TargetFrameworks>
-    <Version>1.5.0</Version>
+    <Version>1.5.1</Version>
     <Description>A scheduled background worker for reactive.pipes. Allows scheduling long-running tasks in the background.</Description>
     <Copyright>© 2012-2018 Daniel Crenna</Copyright>
     <PackageProjectUrl>http://github.com/danielcrenna/reactive-pipes</PackageProjectUrl>
     <RepositoryUrl>http://github.com/danielcrenna/reactive-pipes</RepositoryUrl>
     <PackageLicenseUrl>https://github.com/danielcrenna/reactive-pipes/blob/master/LICENSE</PackageLicenseUrl>
     <PackageTags>distributed scheduled background jobs</PackageTags>
-    <PackageReleaseNotes>update to .netstandard 2.0 only</PackageReleaseNotes>
+    <PackageReleaseNotes>add net461 support back; add customizable table names</PackageReleaseNotes>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <AssemblyName>reactive.pipes.scheduled</AssemblyName>
