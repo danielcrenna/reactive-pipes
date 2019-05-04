@@ -1,14 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Reflection;
 using System.Threading.Tasks;
 
 namespace reactive.pipes
 {
-    partial class Hub : IMessagePublisher
-    {
-        public Task<bool> PublishAsync(object message)
+	partial class Hub : IMessagePublisher
+	{
+		public DispatchConcurrencyMode DispatchConcurrencyMode = 0;
+
+		public Task<bool> PublishAsync(object message)
         {
             return Task.Run(() => Publish(message));
         }
@@ -26,17 +27,13 @@ namespace reactive.pipes
 
         private Func<object, bool> BuildByTypeDispatcher(Type superType)
         {
-            const BindingFlags binding = BindingFlags.NonPublic | BindingFlags.Instance;
-            var publishTyped = typeof(Hub).GetTypeInfo().GetMethod(nameof(PublishTyped), binding);
-	        Debug.Assert(publishTyped != null);
-
             var dispatchers = new Dictionary<Type, MethodInfo>
             {
-                {superType, publishTyped?.MakeGenericMethod(superType)}
+                {superType, Constants.Methods.PublishTyped.MakeGenericMethod(superType)}
             };
 
             foreach (var childType in _typeResolver.GetAncestors(superType))
-                dispatchers.Add(childType, publishTyped?.MakeGenericMethod(childType));
+                dispatchers.Add(childType, Constants.Methods.PublishTyped.MakeGenericMethod(childType));
 
 	        bool Dispatch(object @event)
 	        {
@@ -53,30 +50,39 @@ namespace reactive.pipes
 	        return Dispatch;
         }
         
-        private bool PublishTyped<T>(T @event)
+        private bool PublishTyped<T>(T message)
         {
-	        var subscriptionType = typeof(T);
+	        var key = SubscriptionKey.Create<T>(null);
 
-            if (_subscriptions.TryGetValue(subscriptionType, out var subscription))
+	        if (!_subscriptions.TryGetValue(key, out var subscription))
+		        return true;
+
+	        switch (DispatchConcurrencyMode)
             {
-                lock (subscription)
-                {
-                    var subject = (WrappedSubject<T>)subscription;
-                    try
-                    {
-                        subject.Outcomes.Clear();
-                        subject.OnNext(@event);
-                        return subject.Handled;
-                    }
-                    catch (Exception ex)
-                    {
-                        subject.OnError(ex); // <-- this kind of exception will cancel the observable sequence
-                        return false;
-                    }
-                }
+	            case DispatchConcurrencyMode.Default:
+		            lock (subscription)
+						return ObserveOnSubject();
+				case DispatchConcurrencyMode.Unsafe:
+		            return ObserveOnSubject();
+	            default:
+		            throw new ArgumentOutOfRangeException();
             }
-
-            return true;
+			
+            bool ObserveOnSubject()
+            {
+	            var subject = (WrappedSubject<T>) subscription;
+	            try
+	            {
+		            subject.Outcomes.Clear();
+		            subject.OnNext(message);
+		            return subject.Handled;
+	            }
+	            catch (Exception ex)
+	            {
+		            subject.OnError(ex); // <-- this kind of exception will cancel the observable sequence
+		            return false;
+	            }
+            }
         }
     }
 }
