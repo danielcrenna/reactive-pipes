@@ -1,9 +1,12 @@
+// Copyright (c) Daniel Crenna. All rights reserved.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
 using System.Threading;
 
 namespace reactive.pipes.examples
 {
-    public interface IExample
-    {
-        void Execute(AutoResetEvent block);
-    }
+	public interface IExample
+	{
+		void Execute(AutoResetEvent block);
+	}
 }

@@ -2,13 +2,15 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using System.Collections.Generic;
+using reactive.pipes.Consumers;
 
 namespace reactive.pipes
 {
-	public interface ITypeResolver
+	public static class ProducerExtensions
 	{
-		Type FindTypeByName(string typeName);
-		IEnumerable<Type> GetAncestors(Type type);
+		public static void Attach<T>(this IProduce<T> producer, Action<T> consumer)
+		{
+			producer.Attach(new ActionConsumer<T>(consumer));
+		}
 	}
 }

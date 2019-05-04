@@ -39,8 +39,7 @@ namespace reactive.pipes.tests
 
             // SubscribeWithDelegateAndTopic:
             {
-                hub.Subscribe<StringEvent>(se => { throw new Exception(); }, @event => @event.Text == "bababooey!",
-                    ex => { errors++; });
+                hub.Subscribe<StringEvent>(se => { throw new Exception(); }, @event => @event.Text == "bababooey!", ex => { errors++; });
                 sent = hub.Publish(new StringEvent("not bababooey!"));
                 Assert.False(sent);
                 Assert.Equal(1, errors);

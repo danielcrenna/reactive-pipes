@@ -1,10 +1,11 @@
 // Copyright (c) Daniel Crenna. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-namespace reactive.pipes.tests.Fakes
+namespace reactive.pipes.Producers
 {
-	public class BaseEvent : IEvent
+	public struct QueuedMessage<T>
 	{
-		public int Id { get; set; }
+		public T Message { get; set; }
+		public int Attempts { get; set; }
 	}
 }

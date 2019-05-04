@@ -1,64 +1,67 @@
-﻿using System;
+﻿// Copyright (c) Daniel Crenna. All rights reserved.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Subjects;
 
 namespace reactive.pipes
 {
-    public class WrappedSubject<T> : ISubject<T>, IObservableWithOutcomes<T>, IDisposable
-    {
-        private readonly ISubject<T> _subject;
-        private readonly OutcomePolicy _policy;
+	public class WrappedSubject<T> : ISubject<T>, IObservableWithOutcomes<T>, IDisposable
+	{
+		private readonly OutcomePolicy _policy;
+		private readonly ISubject<T> _subject;
 
-        public WrappedSubject(ISubject<T> subject, OutcomePolicy policy)
-        {
-            _subject = subject;
-            _policy = policy;
+		public WrappedSubject(ISubject<T> subject, OutcomePolicy policy)
+		{
+			_subject = subject;
+			_policy = policy;
 
-            Outcomes = new List<ObservableOutcome>();
-        }
+			Outcomes = new List<ObservableOutcome>();
+		}
 
-        public bool Handled
-        {
-            get
-            {
-                switch (_policy)
-                {
-                    case OutcomePolicy.Pessimistic:
-                        return Outcomes.All(o => o.Result);
-                    case OutcomePolicy.Optimistic:
-                        return Outcomes.Any(o => o.Result);
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
-            }
-        }
+		public void Dispose()
+		{
+			(_subject as IDisposable)?.Dispose();
+		}
 
-        public ICollection<ObservableOutcome> Outcomes { get; }
+		public bool Handled
+		{
+			get
+			{
+				switch (_policy)
+				{
+					case OutcomePolicy.Pessimistic:
+						return Outcomes.All(o => o.Result);
+					case OutcomePolicy.Optimistic:
+						return Outcomes.Any(o => o.Result);
+					default:
+						throw new ArgumentOutOfRangeException();
+				}
+			}
+		}
 
-        public void OnNext(T value)
-        {
-            _subject.OnNext(value);
-        }
+		public ICollection<ObservableOutcome> Outcomes { get; }
 
-        public void OnError(Exception error)
-        {
-            _subject.OnError(error);
-        }
+		public void OnNext(T value)
+		{
+			_subject.OnNext(value);
+		}
 
-        public void OnCompleted()
-        {
-            _subject.OnCompleted();
-        }
+		public void OnError(Exception error)
+		{
+			_subject.OnError(error);
+		}
 
-        public IDisposable Subscribe(IObserver<T> observer)
-        {
-            return _subject.Subscribe(observer);
-        }
+		public void OnCompleted()
+		{
+			_subject.OnCompleted();
+		}
 
-        public void Dispose()
-        {
-            (_subject as IDisposable)?.Dispose();
-        }
-    }
+		public IDisposable Subscribe(IObserver<T> observer)
+		{
+			return _subject.Subscribe(observer);
+		}
+	}
 }
