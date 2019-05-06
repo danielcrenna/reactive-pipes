@@ -76,13 +76,15 @@ namespace reactive.pipes.tests
 
 		[Theory]
 		[InlineData(10)]
-		public async void Profile_busy_wait_over_single_subscription_with_scheduler(int seconds)
+		public async void Profile_busy_wait_over_single_subscription_fire_and_forget(int seconds)
 		{
-			var hub = new Hub();
+			var hub = new Hub
+			{
+				DispatchConcurrencyMode = DispatchConcurrencyMode.Default,
+				PublishMode = PublishMode.FireAndForget
+			};
 			var handler = new BusyWaitHandler(5);
 
-			hub.DispatchConcurrencyMode = DispatchConcurrencyMode.Unsafe;
-			hub.Scheduler = new TaskPoolScheduler(new TaskFactory(new ThreadPerTaskScheduler()));
 			hub.Subscribe(handler);
 
 			var random = new Random();

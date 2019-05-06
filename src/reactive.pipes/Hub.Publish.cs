@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Reactive.Concurrency;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace reactive.pipes
@@ -14,6 +15,7 @@ namespace reactive.pipes
 		public DispatchConcurrencyMode DispatchConcurrencyMode = 0;
 		public OutcomePolicy OutcomePolicy = 0;
 		public SubscriptionKeyMode SubscriptionKeyMode = 0;
+		public PublishMode PublishMode = PublishMode.Default;
 		public IScheduler Scheduler = null;
 
 		public Task<bool> PublishAsync(object message)
@@ -90,6 +92,21 @@ namespace reactive.pipes
 			}
 			
 			bool ObserveOnSubscription(IObservableWithOutcomes<T> subscription)
+			{
+				switch (PublishMode)
+				{
+					case PublishMode.Default:
+						return ObserveOne(subscription);
+					case PublishMode.FireAndForget:
+						var thread = new Thread(() => { ObserveOne(subscription); });
+						thread.Start();
+						return true;
+					default:
+						throw new ArgumentOutOfRangeException();
+				}
+			}
+
+			bool ObserveOne(IObservableWithOutcomes<T> subscription)
 			{
 				try
 				{

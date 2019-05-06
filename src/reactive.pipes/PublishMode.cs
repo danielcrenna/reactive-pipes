@@ -3,16 +3,16 @@
 
 namespace reactive.pipes
 {
-	public enum SubscriptionKeyMode
+	public enum PublishMode
 	{
 		/// <summary>
-		/// The subscription is keyed off of its type. 
+		/// Publishing a message waits for the ACK from the consumer.
 		/// </summary>
 		Default,
-		
+
 		/// <summary>
-		/// The subscription is keyed off of its type and topic, if any.
+		/// Publishing a message does not wait for an ACK from the consumer. All published messages are assumed delivered without retry.
 		/// </summary>
-		Topical
+		FireAndForget
 	}
 }
