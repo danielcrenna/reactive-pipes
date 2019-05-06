@@ -5,9 +5,7 @@ using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Reactive.Subjects;
 using System.Reflection;
 using System.Threading;
 using reactive.pipes.Consumers;
@@ -48,17 +46,13 @@ namespace reactive.pipes
 			var type = handler.GetType();
 			var interfaces = type.GetInterfaces();
 			var consumers = interfaces.Where(i => typeof(IConsume<>).IsAssignableFrom(i.GetGenericTypeDefinition()));
-
-			const BindingFlags binding = BindingFlags.Instance | BindingFlags.NonPublic;
-			var subscribeByInterface = typeof(Hub).GetMethod(nameof(SubscribeByInterface), binding);
-			Debug.Assert(subscribeByInterface != null);
-
+			
 			// void Subscribe<T>(IConsume<T> consumer)
 			foreach (var consumer in consumers)
 			{
 				// SubscribeByInterface(consumer);
 				var handlerType = consumer.GetGenericArguments()[0];
-				subscribeByInterface?.MakeGenericMethod(handlerType)
+				Constants.Methods.SubscribeByInterface.MakeGenericMethod(handlerType)
 					.Invoke(this, new[] {handler, onError ?? NoopErrorHandler});
 			}
 		}
@@ -137,21 +131,42 @@ namespace reactive.pipes
 		private void SubscribeWithInterface<T>(IConsume<T> consumer, Action<Exception> onError,
 			Func<T, bool> topic = null)
 		{
-			var key = SubscriptionKey.Create(topic);
-			var subscription = GetSubscriptionSubject(topic);
-			var unsubscription = _unsubscriptions.GetOrAdd(key, t => new CancellationTokenSource());
-			var observable = (IObservableWithOutcomes<T>) subscription;
+			var key = SubscriptionKey.Create(SubscriptionKeyMode == SubscriptionKeyMode.Topical ? topic : null);
 
+			var getOrAdd = _subscriptions.GetOrAdd(key, k => new Subscription<T>(OutcomePolicy));
+			var observable = (IObservableWithOutcomes<T>) getOrAdd;
+
+			if (key.Topic != null)
+			{
+				// upgrade the "*" subscription to a composite subscription (messages don't know about topics)
+				var noScope = SubscriptionKey.Create<T>(null);
+				var maybeComposite = _subscriptions.GetOrAdd(noScope, k => new CompositeSubscription<T>());
+			
+				if(maybeComposite is CompositeSubscription<T> upgraded)
+					upgraded.Add(observable);
+				else
+				{
+					upgraded = new CompositeSubscription<T>();
+					upgraded.Add((IObservableWithOutcomes<T>) maybeComposite);
+					upgraded.Add(observable);
+
+					_subscriptions[noScope] = upgraded;
+				}
+			}
+
+			var unsubscription = _unsubscriptions.GetOrAdd(key, t => new CancellationTokenSource());
+			
 			if (topic != null)
-				observable.Subscribe(@event =>
+			{
+				observable.Subscribe(message =>
 				{
 					try
 					{
-						if (!topic(@event))
+						if (!topic(message))
 							observable.Outcomes.Add(new ObservableOutcome {Result = false});
 						else
 						{
-							var result = Handle(@event);
+							var result = Handle(message);
 							observable.Outcomes.Add(new ObservableOutcome {Result = result});
 						}
 					}
@@ -160,12 +175,14 @@ namespace reactive.pipes
 						OnHandlerError(onError, ex, observable);
 					}
 				}, e => OnError(e, observable), () => OnCompleted(observable), unsubscription.Token);
+			}
 			else
-				observable.Subscribe(@event =>
+			{
+				observable.Subscribe(message =>
 				{
 					try
 					{
-						var result = Handle(@event);
+						var result = Handle(message);
 						observable.Outcomes.Add(new ObservableOutcome {Result = result});
 					}
 					catch (Exception ex)
@@ -173,14 +190,15 @@ namespace reactive.pipes
 						OnHandlerError(onError, ex, observable);
 					}
 				}, e => OnError(e, observable), () => OnCompleted(observable), unsubscription.Token);
+			}
 
-			bool Handle(T @event)
+			bool Handle(T message)
 			{
 				if (consumer is IConsumeScoped<T> before)
 					if (!before.Before())
 						return false;
 
-				var result = consumer.HandleAsync(@event).ConfigureAwait(false).GetAwaiter().GetResult();
+				var result = consumer.HandleAsync(message).ConfigureAwait(false).GetAwaiter().GetResult();
 
 				if (consumer is IConsumeScoped<T> after)
 					result = after.After(result);
@@ -213,19 +231,7 @@ namespace reactive.pipes
 		{
 			observable.Outcomes.Add(new ObservableOutcome {Error = e, Result = false});
 		}
-
-		private IDisposable GetSubscriptionSubject<T>(Func<T, bool> topic)
-		{
-			var key = SubscriptionKey.Create(topic);
-
-			return _subscriptions.GetOrAdd(key, t =>
-			{
-				ISubject<T> subject = new Subject<T>();
-
-				return new WrappedSubject<T>(subject, OutcomePolicy.Pessimistic);
-			});
-		}
-
+		
 		protected virtual void Dispose(bool disposing)
 		{
 			if (!disposing || _subscriptions == null || _subscriptions.Count == 0)

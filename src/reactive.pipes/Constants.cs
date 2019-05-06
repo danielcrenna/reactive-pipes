@@ -9,8 +9,8 @@ namespace reactive.pipes
 	{
 		public static class Methods
 		{
-			public static readonly MethodInfo PublishTyped =
-				typeof(Hub).GetMethod(nameof(PublishTyped), BindingFlags.NonPublic | BindingFlags.Instance);
+			public static readonly MethodInfo SubscribeByInterface = typeof(Hub).GetMethod(nameof(SubscribeByInterface), BindingFlags.Instance | BindingFlags.NonPublic);
+			public static readonly MethodInfo PublishTyped = typeof(Hub).GetMethod(nameof(PublishTyped), BindingFlags.NonPublic | BindingFlags.Instance);
 		}
 	}
 }

@@ -8,14 +8,14 @@ using System.Reactive.Subjects;
 
 namespace reactive.pipes
 {
-	public class WrappedSubject<T> : ISubject<T>, IObservableWithOutcomes<T>, IDisposable
+	public class Subscription<T> : ISubject<T>, IObservableWithOutcomes<T>, IDisposable
 	{
 		private readonly OutcomePolicy _policy;
 		private readonly ISubject<T> _subject;
 
-		public WrappedSubject(ISubject<T> subject, OutcomePolicy policy)
+		public Subscription(OutcomePolicy policy)
 		{
-			_subject = subject;
+			_subject = new Subject<T>();
 			_policy = policy;
 
 			Outcomes = new List<ObservableOutcome>();
@@ -43,6 +43,11 @@ namespace reactive.pipes
 		}
 
 		public ICollection<ObservableOutcome> Outcomes { get; }
+
+		public void Clear()
+		{
+			Outcomes?.Clear();
+		}
 
 		public void OnNext(T value)
 		{

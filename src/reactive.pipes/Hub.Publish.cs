@@ -11,6 +11,8 @@ namespace reactive.pipes
 	partial class Hub : IMessagePublisher
 	{
 		public DispatchConcurrencyMode DispatchConcurrencyMode = 0;
+		public OutcomePolicy OutcomePolicy = 0;
+		public SubscriptionKeyMode SubscriptionKeyMode = 0;
 
 		public Task<bool> PublishAsync(object message)
 		{
@@ -59,13 +61,13 @@ namespace reactive.pipes
 		{
 			var key = SubscriptionKey.Create<T>(null);
 
-			if (!_subscriptions.TryGetValue(key, out var subscription))
+			if (!_subscriptions.TryGetValue(key, out var disposable))
 				return true;
 
 			switch (DispatchConcurrencyMode)
 			{
 				case DispatchConcurrencyMode.Default:
-					lock (subscription)
+					lock (disposable)
 						return ObserveOnSubject();
 				case DispatchConcurrencyMode.Unsafe:
 					return ObserveOnSubject();
@@ -75,16 +77,16 @@ namespace reactive.pipes
 
 			bool ObserveOnSubject()
 			{
-				var subject = (WrappedSubject<T>) subscription;
+				var subscription = (IObservableWithOutcomes<T>) disposable;
 				try
 				{
-					subject.Outcomes.Clear();
-					subject.OnNext(message);
-					return subject.Handled;
+					subscription.Clear();
+					subscription.OnNext(message);
+					return subscription.Handled;
 				}
 				catch (Exception ex)
 				{
-					subject.OnError(ex); // <-- this kind of exception will cancel the observable sequence
+					subscription.OnError(ex); // <-- this kind of exception will cancel the observable sequence
 					return false;
 				}
 			}

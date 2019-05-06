@@ -12,15 +12,21 @@ namespace reactive.pipes.tests
 		[Fact]
 		public void Can_handle_error_with_callback()
 		{
-			var errors = 0;
-
 			var hub = new Hub();
+			Test_handle_error_with_callback(hub);
 
-			var sent = false;
+			hub.SubscriptionKeyMode = SubscriptionKeyMode.Topical;
+			Test_handle_error_with_callback(hub);
+		}
+
+		private static void Test_handle_error_with_callback(Hub hub)
+		{
+			var errors = 0;
+			bool sent;
 
 			// SubscribeWithDelegate:
 			{
-				hub.Subscribe<InheritedEvent>(e => { throw new Exception(); }, ex => { errors++; });
+				hub.Subscribe<InheritedEvent>(e => throw new Exception(), ex => { errors++; });
 				object @event = new InheritedEvent {Id = 123, Value = "ABC"};
 				sent = hub.Publish(@event);
 				Assert.False(sent, "publishing a failed event should bubble as false to the publish result");
@@ -29,7 +35,7 @@ namespace reactive.pipes.tests
 
 			// SubscribeWithDelegateAndTopic:
 			{
-				hub.Subscribe<StringEvent>(se => { throw new Exception(); }, @event => @event.Text == "bababooey!",
+				hub.Subscribe<StringEvent>(se => throw new Exception(), @event => @event.Text == "bababooey!",
 					ex => { errors++; });
 				sent = hub.Publish(new StringEvent("not bababooey!"));
 				Assert.False(sent);

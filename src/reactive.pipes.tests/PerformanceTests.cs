@@ -105,7 +105,7 @@ namespace reactive.pipes.tests
 
 		[Theory]
 		[InlineData(10)]
-		public async void Profile_busy_wait_over_multiple_subscriptions(int seconds)
+		public async void Profile_busy_wait_over_multiple_subscriptions_with_topic_splitting(int seconds)
 		{
 			var hub = new Hub();
 			var handler = new BusyWaitHandler(5);
@@ -113,6 +113,7 @@ namespace reactive.pipes.tests
 			var partitionKey1 = Guid.NewGuid();
 			var partitionKey2 = Guid.NewGuid();
 
+			hub.SubscriptionKeyMode = SubscriptionKeyMode.Topical; 
 			hub.Subscribe((IConsume<StringEvent>) handler, e => e.PartitionKey == partitionKey1);
 			hub.Subscribe((IConsume<StringEvent>) handler, e => e.PartitionKey == partitionKey2);
 
