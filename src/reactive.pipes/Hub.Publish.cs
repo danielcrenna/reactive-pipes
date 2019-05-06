@@ -16,6 +16,7 @@ namespace reactive.pipes
 		public OutcomePolicy OutcomePolicy = 0;
 		public SubscriptionKeyMode SubscriptionKeyMode = 0;
 		public PublishMode PublishMode = PublishMode.Default;
+		public TopicFilteredResult TopicFilteredResult = TopicFilteredResult.Failure;
 		public IScheduler Scheduler = null;
 
 		public Task<bool> PublishAsync(object message)

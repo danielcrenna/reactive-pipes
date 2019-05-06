@@ -15,7 +15,7 @@ namespace reactive.pipes.tests.Fakes
 
 		public List<string> Lines { get; } = new List<string>();
 
-		public bool Before()
+		public bool Before(BaseEvent message)
 		{
 			_cache.Value.Add("Before");
 			return true;
@@ -28,7 +28,7 @@ namespace reactive.pipes.tests.Fakes
 			return Task.FromResult(true);
 		}
 
-		public bool After(bool result)
+		public bool After(BaseEvent message, bool result)
 		{
 			if (result)
 				_cache.Value.Add("After");

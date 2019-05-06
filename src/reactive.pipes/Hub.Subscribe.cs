@@ -6,7 +6,6 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Reflection;
 using System.Threading;
@@ -169,7 +168,21 @@ namespace reactive.pipes
 					try
 					{
 						if (!topic(message))
-							observable.Outcomes.Add(new ObservableOutcome {Result = false});
+						{
+							bool result;
+							switch (TopicFilteredResult)
+							{
+								case TopicFilteredResult.Failure:
+									result = false;
+									break;
+								case TopicFilteredResult.Success:
+									result = true;
+									break;
+								default:
+									throw new ArgumentOutOfRangeException();
+							}
+							observable.Outcomes.Add(new ObservableOutcome {Result = result});
+						}
 						else
 						{
 							var result = Handle(message);
@@ -201,13 +214,13 @@ namespace reactive.pipes
 			bool Handle(T message)
 			{
 				if (consumer is IConsumeScoped<T> before)
-					if (!before.Before())
+					if (!before.Before(message))
 						return false;
 
 				var result = consumer.HandleAsync(message).ConfigureAwait(false).GetAwaiter().GetResult();
 
 				if (consumer is IConsumeScoped<T> after)
-					result = after.After(result);
+					result = after.After(message, result);
 
 				return result;
 			}

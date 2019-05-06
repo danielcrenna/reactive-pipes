@@ -14,14 +14,15 @@ namespace reactive.pipes
 		///     If this method returns <code>false</code>, the handler is not invoked.
 		/// </summary>
 		/// <returns></returns>
-		bool Before();
+		bool Before(T message);
 
 		/// <summary>
 		///     Runs after handling a message.
 		///     The result returned fromm HandleAsync is replaced with the return of this method.
 		/// </summary>
+		/// <param name="message">The message responsible for the result.</param>
 		/// <param name="result">The value returned from the handler after invoking.</param>
 		/// <returns></returns>
-		bool After(bool result);
+		bool After(T message, bool result);
 	}
 }
