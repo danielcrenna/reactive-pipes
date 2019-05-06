@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Reactive.Concurrency;
 using System.Reflection;
 using System.Threading.Tasks;
 
@@ -13,6 +14,7 @@ namespace reactive.pipes
 		public DispatchConcurrencyMode DispatchConcurrencyMode = 0;
 		public OutcomePolicy OutcomePolicy = 0;
 		public SubscriptionKeyMode SubscriptionKeyMode = 0;
+		public IScheduler Scheduler = null;
 
 		public Task<bool> PublishAsync(object message)
 		{

@@ -6,6 +6,8 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Concurrency;
+using System.Reactive.Linq;
 using System.Reflection;
 using System.Threading;
 using reactive.pipes.Consumers;
@@ -135,7 +137,7 @@ namespace reactive.pipes
 
 			var getOrAdd = _subscriptions.GetOrAdd(key, k => new Subscription<T>(OutcomePolicy));
 			var observable = (IObservableWithOutcomes<T>) getOrAdd;
-
+			
 			if (key.Topic != null)
 			{
 				// upgrade the "*" subscription to a composite subscription (messages don't know about topics)
@@ -155,10 +157,14 @@ namespace reactive.pipes
 			}
 
 			var unsubscription = _unsubscriptions.GetOrAdd(key, t => new CancellationTokenSource());
-			
+
+			var o = (IObservable<T>) observable;
+			if (Scheduler != null)
+				o = o.ObserveOn(Scheduler);
+
 			if (topic != null)
 			{
-				observable.Subscribe(message =>
+				o.Subscribe(message =>
 				{
 					try
 					{
@@ -178,7 +184,7 @@ namespace reactive.pipes
 			}
 			else
 			{
-				observable.Subscribe(message =>
+				o.Subscribe(message =>
 				{
 					try
 					{

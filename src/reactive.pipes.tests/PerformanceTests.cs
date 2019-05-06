@@ -3,8 +3,10 @@
 
 using System;
 using System.Diagnostics;
+using System.Reactive.Concurrency;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Schedulers;
 using reactive.pipes.tests.Fakes;
 using Xunit;
 using Xunit.Abstractions;
@@ -33,7 +35,8 @@ namespace reactive.pipes.tests
 			var sw = Stopwatch.StartNew();
 			var blaster = Task.Run(() =>
 			{
-				while (!cancel.IsCancellationRequested) hub.PublishAsync(new StringEvent(random.Next().ToString()));
+				while (!cancel.IsCancellationRequested)
+					hub.PublishAsync(new StringEvent(random.Next().ToString()));
 			}, token);
 
 			await Task.Delay(TimeSpan.FromSeconds(seconds), token);
@@ -73,7 +76,41 @@ namespace reactive.pipes.tests
 
 		[Theory]
 		[InlineData(10)]
-		public async void Profile_busy_wait_over_single_unsafe(int seconds)
+		public async void Profile_busy_wait_over_single_subscription_with_scheduler(int seconds)
+		{
+			var hub = new Hub();
+			var handler = new BusyWaitHandler(5);
+
+			hub.DispatchConcurrencyMode = DispatchConcurrencyMode.Unsafe;
+			hub.Scheduler = new TaskPoolScheduler(new TaskFactory(new ThreadPerTaskScheduler()));
+			hub.Subscribe(handler);
+
+			var random = new Random();
+			var cancel = new CancellationTokenSource();
+			var token = cancel.Token;
+
+			var sw = Stopwatch.StartNew();
+			var blaster = Task.Run(() =>
+			{
+				while (!cancel.IsCancellationRequested)
+				{
+					// remove the thread pool as a bottleneck
+					var thread = new Thread(() => { hub.Publish(new StringEvent(random.Next().ToString())); });
+					thread.Start();
+				}
+			}, token);
+
+			await Task.Delay(TimeSpan.FromSeconds(seconds), token);
+
+			cancel.Cancel();
+
+			_output.WriteLine(
+				$"Handled {handler.HandledString} messages in {sw.Elapsed.TotalSeconds} seconds. ({handler.HandledString / sw.Elapsed.TotalSeconds:F2} msg/sec)");
+		}
+
+		[Theory]
+		[InlineData(10)]
+		public async void Profile_busy_wait_over_single_subscription_unsafe(int seconds)
 		{
 			var hub = new Hub {DispatchConcurrencyMode = DispatchConcurrencyMode.Unsafe};
 			var handler = new BusyWaitHandler(5);
