@@ -2,13 +2,13 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reactive.Disposables;
 
 namespace reactive.pipes
 {
-	public class CompositeSubscription<T> : IObservableWithOutcomes<T>, IDisposable
+	public class CompositeSubscription<T> : IObservableWithOutcomes<T>, IDisposable, IEnumerable<IObservableWithOutcomes<T>>
 	{
 		private readonly List<IObservableWithOutcomes<T>> _subscriptions;
 
@@ -79,6 +79,16 @@ namespace reactive.pipes
 				composite.Add(subject.Subscribe(observer));
 			}
 			return composite;
+		}
+
+		public IEnumerator<IObservableWithOutcomes<T>> GetEnumerator()
+		{
+			return _subscriptions.GetEnumerator();
+		}
+
+		IEnumerator IEnumerable.GetEnumerator()
+		{
+			return GetEnumerator();
 		}
 	}
 }

@@ -67,17 +67,28 @@ namespace reactive.pipes
 			switch (DispatchConcurrencyMode)
 			{
 				case DispatchConcurrencyMode.Default:
-					lock (disposable)
-						return ObserveOnSubject();
+					if (disposable is CompositeSubscription<T> composite)
+					{
+						foreach (var subscription in composite)
+						{
+							lock (subscription)
+								ObserveOnSubscription(subscription);
+						}
+						return composite.Handled;
+					}
+					else
+					{
+						lock (disposable)
+							return ObserveOnSubscription((IObservableWithOutcomes<T>) disposable);
+					}
 				case DispatchConcurrencyMode.Unsafe:
-					return ObserveOnSubject();
+					return ObserveOnSubscription((IObservableWithOutcomes<T>) disposable);
 				default:
 					throw new ArgumentOutOfRangeException();
 			}
-
-			bool ObserveOnSubject()
+			
+			bool ObserveOnSubscription(IObservableWithOutcomes<T> subscription)
 			{
-				var subscription = (IObservableWithOutcomes<T>) disposable;
 				try
 				{
 					subscription.Clear();
