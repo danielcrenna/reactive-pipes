@@ -125,11 +125,6 @@ namespace reactive.pipes.Producers
 			GC.SuppressFinalize(this);
 		}
 
-		public void Attach(IConsume<T> consumer)
-		{
-			_consumer = new ActionConsumer<QueuedMessage<T>>(async x => await consumer.HandleAsync(x.Message));
-		}
-
 		public async Task Produce(T message)
 		{
 			if (_buffer.IsAddingCompleted)
@@ -229,16 +224,26 @@ namespace reactive.pipes.Producers
 				_cancel.Token);
 		}
 
-		public void Attach(IConsume<QueuedMessage<T>> consumer)
+		public void Attach(IConsume<T> consumer)
+		{
+			SetConsumer(new ActionConsumer<QueuedMessage<T>>(x => HandleMessage(consumer, x)));
+		}
+
+		public void SetConsumer(IConsume<QueuedMessage<T>> consumer)
 		{
 			_consumer = consumer;
 		}
 
-		public void Attach(Action<QueuedMessage<T>> @delegate)
+		public void SetConsumer(Action<QueuedMessage<T>> @delegate)
 		{
-			_consumer = new ActionConsumer<QueuedMessage<T>>(@delegate);
+			SetConsumer(new ActionConsumer<QueuedMessage<T>>(@delegate));
 		}
 
+		private static Task<bool> HandleMessage(IConsume<T> consumer, QueuedMessage<T> x)
+		{
+			return consumer.HandleAsync(x.Message);
+		}
+		
 		public void AttachError(Action<Exception> onError)
 		{
 			_errorConsumer = new ActionConsumer<Exception>(onError);
@@ -352,7 +357,12 @@ namespace reactive.pipes.Producers
 		{
 			if (!disposing) return;
 
-			if (Running) Stop().RunSynchronously();
+			if (Running)
+			{
+				var t = Stop();
+				if(t.IsCompleted && !t.IsFaulted && !t.IsCanceled)
+					t.RunSynchronously();
+			}
 
 			_background?.Dispose();
 			_background = null;

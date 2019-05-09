@@ -114,7 +114,7 @@ namespace reactive.pipes.tests
 		[InlineData(10)]
 		public async void Profile_busy_wait_over_single_subscription_unsafe(int seconds)
 		{
-			var hub = new Hub {DispatchConcurrencyMode = DispatchConcurrencyMode.Unsafe};
+			var hub = new Hub {DispatchConcurrencyMode = DispatchConcurrencyMode.Default};
 			var handler = new BusyWaitHandler(5);
 
 			hub.Subscribe(handler);
@@ -171,6 +171,36 @@ namespace reactive.pipes.tests
 						PartitionKey = distribution++ % 2 == 1 ? partitionKey2 : partitionKey1
 					};
 					hub.PublishAsync(message);
+				}
+			}, token);
+
+			await Task.Delay(TimeSpan.FromSeconds(seconds), token);
+
+			cancel.Cancel();
+
+			_output.WriteLine(
+				$"Handled {handler.HandledString} messages in {sw.Elapsed.TotalSeconds} seconds. ({handler.HandledString / sw.Elapsed.TotalSeconds:F2} msg/sec)");
+		}
+
+		[Theory]
+		[InlineData(10)]
+		public async void Profile_busy_wait_over_single_subscription_schedule_on_new_thread(int seconds)
+		{
+			var hub = new Hub { DispatchConcurrencyMode = DispatchConcurrencyMode.Default };
+			var handler = new BusyWaitHandler(5);
+			hub.Scheduler = new NewThreadScheduler();
+			hub.Subscribe(handler);
+
+			var random = new Random();
+			var cancel = new CancellationTokenSource();
+			var token = cancel.Token;
+
+			var sw = Stopwatch.StartNew();
+			var blaster = Task.Run(() =>
+			{
+				while (!cancel.IsCancellationRequested)
+				{
+					hub.PublishAsync(new StringEvent(random.Next().ToString()));
 				}
 			}, token);
 

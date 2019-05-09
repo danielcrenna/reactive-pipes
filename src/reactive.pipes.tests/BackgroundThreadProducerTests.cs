@@ -29,7 +29,7 @@ namespace reactive.pipes.tests
 			const int expected = 3000;
 			var actual = 0;
 			var producer = new BackgroundThreadProducer<BaseEvent> {MaxDegreeOfParallelism = 10};
-			producer.Attach(x => { Interlocked.Increment(ref actual); });
+			producer.SetConsumer(x => { Interlocked.Increment(ref actual); });
 
 			producer.RateLimitPolicy = new RateLimitPolicy
 			{
@@ -60,7 +60,7 @@ namespace reactive.pipes.tests
 
 			// we have ten background workers trying to consume messages from an internal buffer
 			var producer = new BackgroundThreadProducer<BaseEvent> {MaxDegreeOfParallelism = 10};
-			producer.Attach(x => { Interlocked.Increment(ref actual); });
+			producer.SetConsumer(x => { Interlocked.Increment(ref actual); });
 			await producer.Start();
 
 			// while those workers are waiting for new messages, we feed the production
@@ -86,7 +86,7 @@ namespace reactive.pipes.tests
 			// we have ten background workers trying to consume messages from an internal buffer
 			var producer = new BackgroundThreadProducer<BaseEvent> {MaxDegreeOfParallelism = 10};
 			producer.AttachBacklog(new Action<BaseEvent>(x => Interlocked.Increment(ref backlogged)));
-			producer.Attach(x => { Interlocked.Increment(ref actual); });
+			producer.SetConsumer(x => { Interlocked.Increment(ref actual); });
 
 			producer.RetryPolicy = new RetryPolicy();
 			producer.RetryPolicy.After(1, RetryDecision.Backlog);
@@ -218,7 +218,7 @@ namespace reactive.pipes.tests
 			// Producer:
 			for (var i = 0; i < expected; i++)
 				await producer.Produce(new BaseEvent {Id = i});
-			producer.Attach(async x => { await SendToRandomConsumer(x); });
+			producer.SetConsumer(async x => { await SendToRandomConsumer(x); });
 			await producer.Start(); // start with a full buffer
 			while (actual != expected) // wait for all finalizations
 				await Task.Delay(10);
@@ -267,7 +267,7 @@ namespace reactive.pipes.tests
 
 			// we have ten background workers trying to consume messages from an internal buffer
 			var producer = new BackgroundThreadProducer<BaseEvent> {MaxDegreeOfParallelism = 10};
-			producer.Attach(x => { Interlocked.Increment(ref actual); });
+			producer.SetConsumer(x => { Interlocked.Increment(ref actual); });
 
 			for (var i = 0; i < expected; i++)
 				await producer.Produce(new BaseEvent {Id = i});

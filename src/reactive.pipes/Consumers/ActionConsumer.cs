@@ -21,11 +21,11 @@ namespace reactive.pipes.Consumers
 		{
 			_before = before;
 			_after = after;
-			_delegate = async @event =>
+			_delegate = async message =>
 			{
-				@delegate(@event);
+				@delegate(message);
 
-				return await forwardTo.HandleAsync(@event);
+				return await forwardTo.HandleAsync(message);
 			};
 		}
 
@@ -33,9 +33,9 @@ namespace reactive.pipes.Consumers
 		{
 			_before = before;
 			_after = after;
-			_delegate = @event =>
+			_delegate = message =>
 			{
-				@delegate(@event);
+				@delegate(message);
 				return Task.FromResult(true);
 			};
 		}

@@ -1,31 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <Import Project="$(ProjectDir)..\..\build\package.props" />
+  <Import Project="$(ProjectDir)..\..\build\build.props" />
+
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net461</TargetFrameworks>
-    <AssemblyName>reactive.pipes</AssemblyName>
-    <RootNamespace>reactive.pipes</RootNamespace>
-    <Description>A thin wrapper around Reactive Extensions for distributed application eventing middleware.</Description>
-    <Copyright>© 2012-2019 Daniel Crenna</Copyright>
-    <PackageTags>distributed async service bus</PackageTags>
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/danielcrenna/reactive-pipes</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/danielcrenna/reactive-pipes</RepositoryUrl>
-    <PackageReleaseNotes>Improve scope interface and add customization options for low-level behaviour.</PackageReleaseNotes>
-    <Version>1.6.0-pre</Version>
-    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Authors>Daniel Crenna</Authors>
-    <Company></Company>
-    <RepositoryType>git</RepositoryType>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <OutputPath>bin\Release\netstandard2.0\</OutputPath>
-    <DocumentationFile></DocumentationFile>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|netstandard2.0|AnyCPU'">
-    <DocumentationFile></DocumentationFile>
+    <Configurations>Debug;Release;Package</Configurations>
   </PropertyGroup>
 
   <ItemGroup>

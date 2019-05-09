@@ -1,27 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <Import Project="$(ProjectDir)..\..\build\package.props" />
+  <Import Project="$(ProjectDir)..\..\build\build.props" />
+
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net461</TargetFrameworks>
-    <Version>1.6.0-pre</Version>
-    <Description>A scheduled background worker for reactive.pipes. Allows scheduling long-running tasks in the background.</Description>
-    <Copyright>© 2012-2019 Daniel Crenna</Copyright>
-    <PackageProjectUrl>https://github.com/danielcrenna/reactive-pipes</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/danielcrenna/reactive-pipes</RepositoryUrl>
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <PackageTags>distributed scheduled background jobs</PackageTags>
-    <PackageReleaseNotes>Improve scope interface and add customization options for low-level behaviour.</PackageReleaseNotes>
-    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <AssemblyName>reactive.pipes.scheduled</AssemblyName>
-    <RootNamespace>reactive.pipes.scheduled</RootNamespace>
-    <Authors>Daniel Crenna</Authors>
-    <Company />
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <PlatformTarget>x86</PlatformTarget>
-    <OutputPath>bin\Release\netstandard2.0\</OutputPath>
-    <DocumentationFile></DocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
