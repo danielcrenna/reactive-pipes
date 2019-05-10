@@ -30,9 +30,7 @@ namespace reactive.pipes
 		private readonly ConcurrentDictionary<SubscriptionKey, CancellationTokenSource> _unsubscriptions =
 			new ConcurrentDictionary<SubscriptionKey, CancellationTokenSource>();
 
-		public Hub() : this(GetDefaultAssemblies())
-		{
-		}
+		public Hub() : this(GetDefaultAssemblies()) { }
 
 		public Hub(IEnumerable<Assembly> assemblies) => _typeResolver = new DefaultTypeResolver(assemblies);
 
@@ -214,9 +212,16 @@ namespace reactive.pipes
 			bool Handle(T message)
 			{
 				if (consumer is IConsumeScoped<T> before)
+				{
 					if (!before.Before(message))
-						return false;
+					{
+						if (consumer is ITreatFailureAsSuccess)
+							return true; // ignore message
 
+						return false;
+					}
+				}
+				
 				var result = consumer.HandleAsync(message).ConfigureAwait(false).GetAwaiter().GetResult();
 
 				if (consumer is IConsumeScoped<T> after)

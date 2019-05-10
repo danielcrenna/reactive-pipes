@@ -360,7 +360,7 @@ namespace reactive.pipes.Producers
 			if (Running)
 			{
 				var t = Stop();
-				if(t.IsCompleted && !t.IsFaulted && !t.IsCanceled)
+				if(!t.IsCompleted && !t.IsFaulted && !t.IsCanceled)
 					t.RunSynchronously();
 			}
 
